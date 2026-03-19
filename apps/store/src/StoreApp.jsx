@@ -24,6 +24,8 @@ const qsLogoUrl =
   'https://res.cloudinary.com/dt0becq6s/image/upload/v1773929899/Artistic_QS_logo_with_vibrant_splashes-removebg-preview_jelzag.png'
 
 const CART_KEY = 'qs_store_cart_v1'
+const FREE_SHIPPING_THRESHOLD_CENTS = 5000 * 100
+const SHIPPING_CHARGE_CENTS = 250 * 100
 
 const parseHashRoute = () => {
   const raw = window.location.hash || '#/'
@@ -129,7 +131,6 @@ function StoreApp() {
     city: '',
     state: '',
     postalCode: '',
-    country: 'US',
     notes: '',
   })
 
@@ -147,6 +148,10 @@ function StoreApp() {
 
   const cartCurrency = cartItems[0]?.snapshot?.currency ?? 'USD'
   const cartTotalFormatted = formatPrice({ priceCents: cartTotalCents, currency: cartCurrency })
+  const shippingCents = cartTotalCents >= FREE_SHIPPING_THRESHOLD_CENTS ? 0 : SHIPPING_CHARGE_CENTS
+  const shippingFormatted = formatPrice({ priceCents: shippingCents, currency: cartCurrency })
+  const orderTotalCents = cartTotalCents + shippingCents
+  const orderTotalFormatted = formatPrice({ priceCents: orderTotalCents, currency: cartCurrency })
 
   useEffect(() => {
     window.localStorage.setItem(CART_KEY, JSON.stringify(cartItems))
@@ -465,9 +470,9 @@ function StoreApp() {
 
                   <div className="mt-8 grid grid-cols-3 gap-4 text-center">
                     {[
-                      { label: 'Free Shipping', sub: 'On orders above' },
-                      { label: 'Secure Payment', sub: '100% protected' },
-                      { label: 'Easy Returns', sub: '7 day return policy' },
+                      { label: 'Free Shipping', sub: 'On orders above PKR 5,000' },
+                      { label: 'Cash on Delivery', sub: 'COD available nationwide' },
+                      { label: 'No Return Policy', sub: 'Please order carefully' },
                     ].map((item) => (
                       <div key={item.label} className="p-3 rounded-xl bg-card">
                         <p className="text-xs font-semibold text-foreground">{item.label}</p>
@@ -545,7 +550,7 @@ function StoreApp() {
                     city: checkoutForm.city,
                     state: checkoutForm.state,
                     postalCode: checkoutForm.postalCode,
-                    country: checkoutForm.country,
+                    country: 'Pakistan',
                     notes: checkoutForm.notes,
                   }
 
@@ -594,12 +599,13 @@ function StoreApp() {
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="text-sm font-medium capitalize text-foreground">Email (optional)</label>
+                    <label className="text-sm font-medium capitalize text-foreground">Email</label>
                     <input
                       type="email"
                       value={checkoutForm.email}
                       onChange={(e) => setCheckoutForm((f) => ({ ...f, email: e.target.value }))}
                       className="mt-1.5 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      required
                     />
                   </div>
 
@@ -637,11 +643,12 @@ function StoreApp() {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium capitalize text-foreground">State / Province (optional)</label>
+                    <label className="text-sm font-medium capitalize text-foreground">State / Province</label>
                     <input
                       value={checkoutForm.state}
                       onChange={(e) => setCheckoutForm((f) => ({ ...f, state: e.target.value }))}
                       className="mt-1.5 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      required
                     />
                   </div>
 
@@ -650,16 +657,6 @@ function StoreApp() {
                     <input
                       value={checkoutForm.postalCode}
                       onChange={(e) => setCheckoutForm((f) => ({ ...f, postalCode: e.target.value }))}
-                      className="mt-1.5 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium capitalize text-foreground">Country</label>
-                    <input
-                      value={checkoutForm.country}
-                      onChange={(e) => setCheckoutForm((f) => ({ ...f, country: e.target.value }))}
                       className="mt-1.5 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                       required
                     />
@@ -680,15 +677,15 @@ function StoreApp() {
                 <div className="flex items-center gap-6 pt-2 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1.5">
                     <Shield className="w-3.5 h-3.5" />
-                    Secure
+                    Cash on Delivery
                   </span>
                   <span className="flex items-center gap-1.5">
                     <Truck className="w-3.5 h-3.5" />
-                    Free Shipping
+                    Free shipping above PKR 5,000
                   </span>
                   <span className="flex items-center gap-1.5">
                     <RotateCcw className="w-3.5 h-3.5" />
-                    Easy Returns
+                    No return policy
                   </span>
                 </div>
 
@@ -697,7 +694,7 @@ function StoreApp() {
                   className="w-full py-4 rounded-full bg-primary text-primary-foreground font-semibold text-sm hover:bg-teal-light transition-colors"
                   disabled={checkoutPlacing}
                 >
-                  {checkoutPlacing ? 'Placing order...' : `Place order (COD) — ${cartTotalFormatted}`}
+                  {checkoutPlacing ? 'Placing order...' : `Place order (COD) — ${orderTotalFormatted}`}
                 </button>
               </form>
 
@@ -734,11 +731,11 @@ function StoreApp() {
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Shipping</span>
-                      <span className="text-primary font-medium">Free</span>
+                      <span className="text-primary font-medium">{shippingCents === 0 ? 'Free' : shippingFormatted}</span>
                     </div>
                     <div className="flex justify-between font-display font-bold text-lg pt-2 border-t border-border">
                       <span>Total</span>
-                      <span>{cartTotalFormatted}</span>
+                      <span>{orderTotalFormatted}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Payment</span>
@@ -760,7 +757,7 @@ function StoreApp() {
 
           <h1 className="font-display text-3xl font-bold mb-3">Order Placed!</h1>
           <p className="text-muted-foreground mb-6">
-            Thank you for your order. We'll prepare your artwork with love and care.
+            Thank you for your order. Our team will get in touch with you shortly to confirm the details.
           </p>
 
           <div className="rounded-xl bg-card p-5 mb-8">
@@ -909,7 +906,7 @@ function StoreApp() {
                 </p>
                 <p className="text-sm">
                   <span className="font-semibold text-foreground">Phone:</span>{' '}
-                  <span className="text-muted-foreground">+1 (000) 000-0000</span>
+                  <span className="text-muted-foreground">+92 324 4435463</span>
                 </p>
               </div>
             </div>

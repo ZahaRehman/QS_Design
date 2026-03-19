@@ -6,8 +6,9 @@ const Footer = () => {
           <div className="md:col-span-2">
             <h3 className="font-display text-2xl font-bold mb-3">QS</h3>
             <p className="text-muted-foreground text-sm max-w-xs leading-relaxed">
-              A curated marketplace for paintings, handmade artwork, and creative products from talented artists worldwide.
+              This is the official QS portfolio and direct order page for original paintings and custom artwork.
             </p>
+            <p className="text-muted-foreground text-sm mt-3">Contact: +92 324 4435463</p>
           </div>
           <div>
             <h4 className="font-semibold text-sm uppercase tracking-wider mb-4 text-foreground">Explore</h4>

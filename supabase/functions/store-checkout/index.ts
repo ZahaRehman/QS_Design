@@ -121,7 +121,11 @@ Deno.serve(async (request) => {
         0,
       )
 
-      const orderTotalCents = subtotalCents // COD only for now; no shipping/tax yet.
+      const FREE_SHIPPING_THRESHOLD_CENTS = 5000 * 100
+      const SHIPPING_CHARGE_CENTS = 250 * 100
+      const shippingCents =
+        subtotalCents >= FREE_SHIPPING_THRESHOLD_CENTS ? 0 : SHIPPING_CHARGE_CENTS
+      const orderTotalCents = subtotalCents + shippingCents
 
       const { data: createdOrder, error: orderError } = await serviceClient
         .from('orders')
@@ -141,7 +145,7 @@ Deno.serve(async (request) => {
           currency,
           subtotal_cents: subtotalCents,
           tax_cents: 0,
-          shipping_cents: 0,
+          shipping_cents: shippingCents,
           total_cents: orderTotalCents,
         })
         .select('id,status,total_cents,currency,created_at')
