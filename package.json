@@ -1,0 +1,21 @@
+{
+  "name": "qs-design-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:admin": "npm run dev -w @qs/admin",
+    "dev:store": "npm run dev -w @qs/store",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "seed:admin": "node scripts/seed-admin.mjs",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:db:push": "supabase db push",
+    "supabase:functions:serve": "supabase functions serve --env-file supabase/.env.local",
+    "supabase:functions:deploy:admin-auth": "supabase functions deploy admin-auth",
+    "supabase:functions:deploy:admin-catalog": "supabase functions deploy admin-catalog"
+  }
+}
