@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft,
@@ -115,6 +115,9 @@ function StoreApp() {
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [lightboxOpen, setLightboxOpen] = useState(false)
+  const touchStartXRef = useRef(null)
+  const touchStartYRef = useRef(null)
+  const didSwipeRef = useRef(false)
 
   const [cartOpen, setCartOpen] = useState(false)
   const [cartItems, setCartItems] = useState(() => {
@@ -383,41 +386,111 @@ function StoreApp() {
                     const imgs = getSortedImages(selectedProduct)
                     const clampedIndex = clamp(selectedImageIndex, 0, Math.max(0, imgs.length - 1))
                     const active = imgs[clampedIndex]
+                    const canNavigate = imgs.length > 1
+
+                    const goPrevImage = () => {
+                      if (!canNavigate) return
+                      setSelectedImageIndex((idx) => (idx - 1 + imgs.length) % imgs.length)
+                    }
+
+                    const goNextImage = () => {
+                      if (!canNavigate) return
+                      setSelectedImageIndex((idx) => (idx + 1) % imgs.length)
+                    }
+
+                    const handleTouchStart = (event) => {
+                      const touch = event.touches?.[0]
+                      if (!touch) return
+                      touchStartXRef.current = touch.clientX
+                      touchStartYRef.current = touch.clientY
+                      didSwipeRef.current = false
+                    }
+
+                    const handleTouchEnd = (event) => {
+                      const startX = touchStartXRef.current
+                      const startY = touchStartYRef.current
+                      touchStartXRef.current = null
+                      touchStartYRef.current = null
+                      if (!canNavigate || startX == null || startY == null) return
+
+                      const touch = event.changedTouches?.[0]
+                      if (!touch) return
+
+                      const deltaX = touch.clientX - startX
+                      const deltaY = touch.clientY - startY
+                      const swipeThreshold = 40
+
+                      if (Math.abs(deltaX) > swipeThreshold && Math.abs(deltaX) > Math.abs(deltaY)) {
+                        didSwipeRef.current = true
+                        if (deltaX < 0) goNextImage()
+                        else goPrevImage()
+                      }
+                    }
 
                     return (
                       <>
-                        <button
-                          type="button"
-                          className="relative group rounded-2xl overflow-hidden bg-card aspect-[3/4] w-full text-left"
-                          onClick={() => {
-                            if (active?.image_url) setLightboxOpen(true)
-                          }}
-                          aria-label="Open image fullscreen"
-                        >
-                          <AnimatePresence mode="wait">
-                            {active?.image_url ? (
-                              <motion.img
-                                key={active.id ?? `${selectedProduct.id}-${clampedIndex}`}
-                                src={active.image_url}
-                                alt={selectedProduct.name ?? 'Product'}
-                                className="w-full h-full object-cover"
-                                initial={{ opacity: 0, x: 14, scale: 0.98 }}
-                                animate={{ opacity: 1, x: 0, scale: 1 }}
-                                exit={{ opacity: 0, x: -14, scale: 0.98 }}
-                                transition={{ duration: 0.3, ease: 'easeOut' }}
-                              />
-                            ) : (
-                              <motion.div
-                                key="empty-image"
-                                className="w-full h-full bg-muted"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: 0.2 }}
-                              />
-                            )}
-                          </AnimatePresence>
-                        </button>
+                        <div className="relative group rounded-2xl overflow-hidden bg-card aspect-[3/4] w-full">
+                          <button
+                            type="button"
+                            className="w-full h-full text-left touch-pan-y"
+                            onTouchStart={handleTouchStart}
+                            onTouchEnd={handleTouchEnd}
+                            onClick={() => {
+                              // Ignore click that was part of a swipe gesture.
+                              if (didSwipeRef.current) {
+                                didSwipeRef.current = false
+                                return
+                              }
+                              if (active?.image_url) setLightboxOpen(true)
+                            }}
+                            aria-label="Open image fullscreen"
+                          >
+                            <AnimatePresence mode="wait">
+                              {active?.image_url ? (
+                                <motion.img
+                                  key={active.id ?? `${selectedProduct.id}-${clampedIndex}`}
+                                  src={active.image_url}
+                                  alt={selectedProduct.name ?? 'Product'}
+                                  className="w-full h-full object-cover"
+                                  initial={{ opacity: 0, x: 14, scale: 0.98 }}
+                                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                                  exit={{ opacity: 0, x: -14, scale: 0.98 }}
+                                  transition={{ duration: 0.3, ease: 'easeOut' }}
+                                />
+                              ) : (
+                                <motion.div
+                                  key="empty-image"
+                                  className="w-full h-full bg-muted"
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  exit={{ opacity: 0 }}
+                                  transition={{ duration: 0.2 }}
+                                />
+                              )}
+                            </AnimatePresence>
+                          </button>
+
+                          {canNavigate ? (
+                            <>
+                              <button
+                                type="button"
+                                className="hidden md:flex absolute left-3 top-1/2 -translate-y-1/2 items-center justify-center w-9 h-9 rounded-full bg-background/80 border border-border text-foreground hover:bg-background transition-colors"
+                                onClick={goPrevImage}
+                                aria-label="View previous image"
+                              >
+                                <ArrowLeft className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 items-center justify-center w-9 h-9 rounded-full bg-background/80 border border-border text-foreground hover:bg-background transition-colors"
+                                onClick={goNextImage}
+                                aria-label="View next image"
+                              >
+                                <ArrowRight className="w-4 h-4" />
+                              </button>
+                            </>
+                          ) : null}
+                        </div>
 
                         {imgs.length > 1 ? (
                           <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
