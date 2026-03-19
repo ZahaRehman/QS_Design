@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft,
   ArrowRight,
   CheckCircle,
+  X,
   Heart,
   RotateCcw,
   Shield,
@@ -63,10 +65,11 @@ const formatPrice = ({ priceCents, currency }) => {
     return new Intl.NumberFormat(undefined, {
       style: 'currency',
       currency: code,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
     }).format(amount)
   } catch {
-    return `${amount.toFixed(2)} ${code}`
+    return `${Math.round(amount).toLocaleString()} ${code}`
   }
 }
 
@@ -111,6 +114,7 @@ function StoreApp() {
   const [detailsError, setDetailsError] = useState('')
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
 
   const [cartOpen, setCartOpen] = useState(false)
   const [cartItems, setCartItems] = useState(() => {
@@ -233,6 +237,7 @@ function StoreApp() {
     if (route.page !== 'product' || !route.productId) {
       setSelectedProduct(null)
       setSelectedImageIndex(0)
+      setLightboxOpen(false)
       return
     }
 
@@ -243,6 +248,7 @@ function StoreApp() {
       setDetailsError('')
       setSelectedProduct(null)
       setSelectedImageIndex(0)
+      setLightboxOpen(false)
 
       try {
         const data = await getProduct({ productId: route.productId })
@@ -261,6 +267,15 @@ function StoreApp() {
       cancelled = true
     }
   }, [route.page, route.productId])
+
+  useEffect(() => {
+    if (!lightboxOpen) return
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setLightboxOpen(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [lightboxOpen])
 
   const goHome = () => {
     window.location.hash = '#/'
@@ -371,17 +386,38 @@ function StoreApp() {
 
                     return (
                       <>
-                        <div className="relative group rounded-2xl overflow-hidden bg-card aspect-[3/4]">
-                          {active?.image_url ? (
-                            <img
-                              src={active.image_url}
-                              alt={selectedProduct.name ?? 'Product'}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-muted" />
-                          )}
-                        </div>
+                        <button
+                          type="button"
+                          className="relative group rounded-2xl overflow-hidden bg-card aspect-[3/4] w-full text-left"
+                          onClick={() => {
+                            if (active?.image_url) setLightboxOpen(true)
+                          }}
+                          aria-label="Open image fullscreen"
+                        >
+                          <AnimatePresence mode="wait">
+                            {active?.image_url ? (
+                              <motion.img
+                                key={active.id ?? `${selectedProduct.id}-${clampedIndex}`}
+                                src={active.image_url}
+                                alt={selectedProduct.name ?? 'Product'}
+                                className="w-full h-full object-cover"
+                                initial={{ opacity: 0, x: 14, scale: 0.98 }}
+                                animate={{ opacity: 1, x: 0, scale: 1 }}
+                                exit={{ opacity: 0, x: -14, scale: 0.98 }}
+                                transition={{ duration: 0.3, ease: 'easeOut' }}
+                              />
+                            ) : (
+                              <motion.div
+                                key="empty-image"
+                                className="w-full h-full bg-muted"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                              />
+                            )}
+                          </AnimatePresence>
+                        </button>
 
                         {imgs.length > 1 ? (
                           <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
@@ -407,6 +443,71 @@ function StoreApp() {
                             })}
                           </div>
                         ) : null}
+
+                        <AnimatePresence>
+                          {lightboxOpen && active?.image_url ? (
+                            <motion.div
+                              className="fixed inset-0 z-[100] bg-black/90 p-4 md:p-8"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              onClick={() => setLightboxOpen(false)}
+                            >
+                              <button
+                                type="button"
+                                className="absolute top-4 right-4 md:top-6 md:right-6 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setLightboxOpen(false)
+                                }}
+                                aria-label="Close fullscreen image"
+                              >
+                                <X className="w-5 h-5" />
+                              </button>
+
+                              <div className="h-full w-full flex items-center justify-center">
+                                <motion.img
+                                  key={`lightbox-${active.id ?? clampedIndex}`}
+                                  src={active.image_url}
+                                  alt={selectedProduct.name ?? 'Product'}
+                                  className="max-h-[90vh] max-w-[92vw] object-contain rounded-xl"
+                                  initial={{ opacity: 0, scale: 0.96 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  exit={{ opacity: 0, scale: 0.96 }}
+                                  transition={{ duration: 0.25, ease: 'easeOut' }}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              </div>
+
+                              {imgs.length > 1 ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setSelectedImageIndex((idx) => (idx - 1 + imgs.length) % imgs.length)
+                                    }}
+                                    aria-label="View previous image"
+                                  >
+                                    <ArrowLeft className="w-5 h-5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setSelectedImageIndex((idx) => (idx + 1) % imgs.length)
+                                    }}
+                                    aria-label="View next image"
+                                  >
+                                    <ArrowRight className="w-5 h-5" />
+                                  </button>
+                                </>
+                              ) : null}
+                            </motion.div>
+                          ) : null}
+                        </AnimatePresence>
                       </>
                     )
                   })()}

@@ -11,10 +11,11 @@ const formatPrice = ({ priceCents, currency }) => {
     return new Intl.NumberFormat(undefined, {
       style: 'currency',
       currency: code,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
     }).format(amount)
   } catch {
-    return `${amount.toFixed(2)} ${code}`
+    return `${Math.round(amount).toLocaleString()} ${code}`
   }
 }
 
