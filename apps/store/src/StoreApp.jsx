@@ -17,6 +17,7 @@ import { getProduct, listCategories, listProducts, listProductsByCategory } from
 import { createOrder } from './lib/storeCheckoutApi'
 
 import Hero from './store-ui/Hero.jsx'
+import ScrollScrubVideo from './store-ui/ScrollScrubVideo.jsx'
 import CategoryPills from './store-ui/CategoryPills.jsx'
 import ProductCard from './store-ui/ProductCard.jsx'
 import CartDrawer from './store-ui/CartDrawer.jsx'
@@ -961,6 +962,10 @@ function StoreApp() {
         <div id="home">
           <Hero onExplore={handleExploreGallery} />
         </div>
+
+        <ScrollScrubVideo
+          videoSrc="https://res.cloudinary.com/dt0becq6s/video/upload/v1773997170/WhatsApp_Video_2026-03-20_at_1.56.22_PM_bcx5xi.mp4"
+        />
 
         <section className="container py-16 md:py-20">
           <div className="flex items-center gap-3 mb-8">
