@@ -504,8 +504,19 @@ function StoreApp() {
     const measure = () => {
       const setWidth = newArrivalsSetRef.current?.offsetWidth ?? 0
       if (!setWidth) return
+      const prevWidth = newArrivalsLoopWidthRef.current
+      const prevOffset = newArrivalsOffsetRef.current
       newArrivalsLoopWidthRef.current = setWidth
-      applyNewArrivalsOffset(-setWidth)
+
+      // Preserve carousel phase on viewport changes (mobile URL bar show/hide),
+      // so it doesn't visibly "restart" while scrolling the page.
+      if (!prevWidth) {
+        applyNewArrivalsOffset(-setWidth)
+        return
+      }
+
+      const prevPhase = (prevOffset + prevWidth) / prevWidth // expected range [-1, 0)
+      applyNewArrivalsOffset(-setWidth + prevPhase * setWidth)
     }
 
     measure()
