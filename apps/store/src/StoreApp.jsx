@@ -118,6 +118,7 @@ const cartLineMatches = (item, productId, canvasSizeId) =>
 
 function StoreApp() {
   const [route, setRoute] = useState(() => parseHashRoute())
+  const isProductPage = route.page === 'product'
 
   const [categories, setCategories] = useState([])
   const [loadingCategories, setLoadingCategories] = useState(true)
@@ -141,6 +142,9 @@ function StoreApp() {
   const touchStartXRef = useRef(null)
   const touchStartYRef = useRef(null)
   const didSwipeRef = useRef(false)
+  const [navHidden, setNavHidden] = useState(false)
+  const navHiddenRef = useRef(false)
+  const lastScrollYRef = useRef(0)
 
   const [cartOpen, setCartOpen] = useState(false)
   const [cartItems, setCartItems] = useState(() => {
@@ -208,6 +212,40 @@ function StoreApp() {
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
+
+  useEffect(() => {
+    if (!isProductPage) {
+      navHiddenRef.current = false
+      setNavHidden(false)
+      lastScrollYRef.current = typeof window !== 'undefined' ? window.scrollY ?? 0 : 0
+      return
+    }
+
+    let raf = 0
+    const thresholdPx = 72
+    lastScrollYRef.current = window.scrollY ?? 0
+
+    const onScroll = () => {
+      if (raf) return
+      raf = window.requestAnimationFrame(() => {
+        raf = 0
+        const y = window.scrollY ?? 0
+        const lastY = lastScrollYRef.current
+        const shouldHide = y > lastY && y > thresholdPx
+        if (shouldHide !== navHiddenRef.current) {
+          navHiddenRef.current = shouldHide
+          setNavHidden(shouldHide)
+        }
+        lastScrollYRef.current = y
+      })
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      if (raf) window.cancelAnimationFrame(raf)
+      window.removeEventListener('scroll', onScroll)
+    }
+  }, [isProductPage])
 
   useEffect(() => {
     let cancelled = false
@@ -492,7 +530,7 @@ function StoreApp() {
 
                     return (
                       <>
-                        <div className="relative group rounded-2xl overflow-hidden bg-card aspect-[3/4] w-full">
+                        <div className="relative group rounded-none overflow-hidden bg-card aspect-[4/5] md:aspect-[5/6] w-full max-w-[520px]">
                           <button
                             type="button"
                             className="w-full h-full text-left touch-pan-y"
@@ -514,7 +552,7 @@ function StoreApp() {
                                   key={active.id ?? `${selectedProduct.id}-${clampedIndex}`}
                                   src={active.image_url}
                                   alt={selectedProduct.name ?? 'Product'}
-                                  className="w-full h-full object-cover"
+                                  className="w-full h-full object-contain"
                                   initial={{ opacity: 0, x: 14, scale: 0.98 }}
                                   animate={{ opacity: 1, x: 0, scale: 1 }}
                                   exit={{ opacity: 0, x: -14, scale: 0.98 }}
@@ -564,7 +602,7 @@ function StoreApp() {
                                   key={img.id ?? idx}
                                   type="button"
                                   onClick={() => setSelectedImageIndex(idx)}
-                                  className={`rounded-xl overflow-hidden border transition-colors ${
+                                  className={`rounded-none overflow-hidden border transition-colors ${
                                     activeThumb ? 'border-ring' : 'border-border'
                                   }`}
                                   aria-label={`View image ${idx + 1}`}
@@ -606,7 +644,7 @@ function StoreApp() {
                                   key={`lightbox-${active.id ?? clampedIndex}`}
                                   src={active.image_url}
                                   alt={selectedProduct.name ?? 'Product'}
-                                  className="max-h-[90vh] max-w-[92vw] object-contain rounded-xl"
+                                  className="max-h-[90vh] max-w-[92vw] object-contain rounded-none"
                                   initial={{ opacity: 0, scale: 0.96 }}
                                   animate={{ opacity: 1, scale: 1 }}
                                   exit={{ opacity: 0, scale: 0.96 }}
@@ -1246,7 +1284,13 @@ function StoreApp() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur border-b border-border">
+      <header
+        className={`z-50 bg-background/80 backdrop-blur border-b border-border transition-transform duration-300 ${
+          isProductPage
+            ? `fixed top-0 left-0 right-0 ${navHidden ? '-translate-y-full' : 'translate-y-0'}`
+            : 'sticky top-0 translate-y-0'
+        }`}
+      >
         <div className="container flex items-center justify-between h-16 md:h-20">
           <a
             href="#/"
@@ -1323,7 +1367,7 @@ function StoreApp() {
         </div>
       </header>
 
-      <main>{routeMain}</main>
+      <main className={isProductPage ? 'pt-16 md:pt-20' : undefined}>{routeMain}</main>
 
       {!cartOpen ? (
         <a

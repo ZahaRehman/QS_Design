@@ -80,36 +80,37 @@ const ProductCard = ({ product, index = 0, isNew = false, isTrending = false, on
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.05 }}
-      className="group relative rounded-xl overflow-hidden bg-card hover-lift"
+      className="group relative rounded-none overflow-visible bg-transparent"
     >
-      <div className="relative aspect-[3/4] overflow-hidden">
+      {/* Square image, sharp corners (featured-wall-art style) */}
+      <div className="relative aspect-square w-full overflow-hidden bg-muted">
         {imageUrl ? (
           <img
             src={imageUrl}
             alt={product?.name ?? 'Product image'}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
             loading="lazy"
           />
         ) : (
           <div className="w-full h-full bg-muted" />
         )}
 
-        <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/30 transition-all duration-300" />
+        <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-all duration-300 pointer-events-none" />
 
-        <div className="absolute top-3 left-3 flex gap-2">
+        <div className="absolute top-2 left-2 flex flex-wrap gap-1.5">
           {isNew && (
-            <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-accent text-accent-foreground">
+            <span className="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-accent text-accent-foreground rounded-none">
               New
             </span>
           )}
           {isTrending && (
-            <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-secondary text-secondary-foreground">
+            <span className="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-secondary text-secondary-foreground rounded-none">
               Trending
             </span>
           )}
         </div>
 
-        <div className="absolute inset-0 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
           <button
             type="button"
             onClick={(e) => {
@@ -117,10 +118,10 @@ const ProductCard = ({ product, index = 0, isNew = false, isTrending = false, on
               e.stopPropagation()
               onViewProduct?.(product?.id)
             }}
-            className="p-3 rounded-full glass hover:bg-background/80 transition-colors"
+            className="p-2.5 rounded-xl bg-background/90 border border-border hover:bg-background transition-colors shadow-sm"
             aria-label="View product"
           >
-            <Eye className="w-5 h-5 text-foreground" />
+            <Eye className="w-4 h-4 text-foreground" />
           </button>
 
           <button
@@ -130,23 +131,26 @@ const ProductCard = ({ product, index = 0, isNew = false, isTrending = false, on
               e.stopPropagation()
               onAddToCart?.(product)
             }}
-            className="p-3 rounded-full bg-primary text-primary-foreground hover:bg-teal-light transition-colors"
+            className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-teal-light transition-colors shadow-sm"
             aria-label="Add to cart"
           >
-            <ShoppingBag className="w-5 h-5" />
+            <ShoppingBag className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      <div className="p-4">
-        <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-          {categoryName}
-        </span>
-        <h3 className="font-display text-lg font-semibold text-foreground mt-1 leading-tight">
+      <div className="pt-3 px-0 text-left">
+        <h3 className="font-display text-base font-bold text-foreground leading-snug line-clamp-2">
           {product?.name}
         </h3>
-        <p className="text-xs text-muted-foreground mt-0.5">by QS Artists</p>
-        {priceText ? <p className="text-base font-bold text-primary mt-2">{priceText}</p> : null}
+        {categoryName ? (
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mt-1">
+            {categoryName}
+          </p>
+        ) : null}
+        {priceText ? (
+          <p className="text-sm font-normal text-foreground mt-1.5">{priceText}</p>
+        ) : null}
       </div>
     </MotionDiv>
   )

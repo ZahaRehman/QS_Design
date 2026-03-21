@@ -125,13 +125,13 @@ export default function AllProductsPage() {
         {filtered.length === 0 ? (
           <p className="text-sm text-muted-foreground py-8 text-center">No products found.</p>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-8">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-8">
             {filtered.map((product: QSProduct) => (
               <div
                 key={product.id}
-                className="bg-card border rounded-lg overflow-hidden transition-shadow hover:shadow-md"
+                className="bg-transparent overflow-visible transition-opacity hover:opacity-95"
               >
-                <div className="aspect-[4/3] bg-muted flex items-center justify-center">
+                <div className="aspect-square w-full bg-muted overflow-hidden rounded-none border-0">
                   {thumbUrl(product) ? (
                     <img
                       src={thumbUrl(product)}
@@ -139,15 +139,19 @@ export default function AllProductsPage() {
                       className="object-cover w-full h-full"
                     />
                   ) : (
-                    <span className="text-xs text-muted-foreground">No image</span>
+                    <span className="text-xs text-muted-foreground flex items-center justify-center h-full">
+                      No image
+                    </span>
                   )}
                 </div>
-                <div className="p-4">
-                  <h3 className="font-medium text-foreground text-sm mb-1">{product.name}</h3>
-                  <p className="text-xs text-muted-foreground mb-2">
+                <div className="pt-3 px-0">
+                  <h3 className="font-semibold text-foreground text-base leading-snug">{product.name}</h3>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mt-1">
                     {getCatNames(product) || "Uncategorized"}
                   </p>
-                  <p className="text-sm font-medium text-primary">From {firstCanvasPriceLabel(product)}</p>
+                  <p className="text-sm text-foreground mt-1.5">
+                    From {firstCanvasPriceLabel(product)}
+                  </p>
                   <div className="flex gap-2 mt-3">
                     <Button
                       variant="outline"
