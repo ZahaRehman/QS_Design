@@ -184,52 +184,58 @@ export default function CreateProductPage() {
             </div>
             <div className="space-y-2">
               {canvasSizeRows.map((size, i) => (
-                <div key={size.id} className="flex items-center gap-3">
-                  <div className="flex-1 flex items-center gap-2">
-                    <Input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      className="w-24"
-                      placeholder={i === 0 ? "Width (e.g. 12)" : "Width"}
-                      value={size.width}
-                      onChange={(e) => updateSize(size.id, "width", e.target.value)}
-                      disabled={catalogLoading}
-                    />
-                    <span className="text-sm font-semibold text-muted-foreground">×</span>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      className="w-24"
-                      placeholder={i === 0 ? "Height (e.g. 16)" : "Height"}
-                      value={size.height}
-                      onChange={(e) => updateSize(size.id, "height", e.target.value)}
-                      disabled={catalogLoading}
-                    />
-                    <span className="text-sm font-semibold text-muted-foreground">"</span>
+                <div key={size.id} className="rounded-md border border-border p-3">
+                  <div className="grid grid-cols-1 md:grid-cols-[1fr_150px_auto] gap-3 items-end">
+                    <div className="grid grid-cols-[1fr_auto_1fr_auto] gap-2 items-center min-w-0">
+                      <Input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        className="min-w-0"
+                        placeholder={i === 0 ? "Width (e.g. 12)" : "Width"}
+                        value={size.width}
+                        onChange={(e) => updateSize(size.id, "width", e.target.value)}
+                        disabled={catalogLoading}
+                      />
+                      <span className="text-sm font-semibold text-muted-foreground">×</span>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        className="min-w-0"
+                        placeholder={i === 0 ? "Height (e.g. 16)" : "Height"}
+                        value={size.height}
+                        onChange={(e) => updateSize(size.id, "height", e.target.value)}
+                        disabled={catalogLoading}
+                      />
+                      <span className="text-sm font-semibold text-muted-foreground">"</span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Price (PKR)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder={i === 0 ? "e.g. 2495" : "Price"}
+                        value={size.price}
+                        onChange={(e) => updateSize(size.id, "price", e.target.value)}
+                        disabled={catalogLoading}
+                        inputMode="decimal"
+                      />
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeSize(size.id)}
+                      disabled={canvasSizeRows.length <= 1 || catalogLoading}
+                      className="text-muted-foreground hover:text-destructive shrink-0 justify-self-start md:justify-self-end"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <div className="w-28">
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="Price"
-                      value={size.price}
-                      onChange={(e) => updateSize(size.id, "price", e.target.value)}
-                      disabled={catalogLoading}
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeSize(size.id)}
-                    disabled={canvasSizeRows.length <= 1 || catalogLoading}
-                    className="text-muted-foreground hover:text-destructive shrink-0"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
                 </div>
               ))}
             </div>

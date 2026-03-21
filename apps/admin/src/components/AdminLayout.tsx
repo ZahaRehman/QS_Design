@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useState } from "react";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { AdminTopbar } from "@/components/AdminTopbar";
 import { ErrorBanner } from "@/components/ErrorBanner";
@@ -17,13 +18,15 @@ export function AdminLayout({
   onDismissError,
   saving = false,
 }: AdminLayoutProps) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
-    <div className="flex min-h-screen w-full">
-      <AdminSidebar />
-      <div className="flex-1 flex flex-col min-w-0">
-        <AdminTopbar />
+    <div className="flex min-h-screen w-full overflow-hidden">
+      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div className="flex-1 flex flex-col min-w-0 min-h-0">
+        <AdminTopbar onOpenSidebar={() => setSidebarOpen(true)} />
         <ErrorBanner message={error} onDismiss={onDismissError ?? (() => {})} />
-        <main className="flex-1 p-6 animate-fade-in">{children}</main>
+        <main className="flex-1 min-h-0 overflow-auto p-6 animate-fade-in">{children}</main>
       </div>
       <SavingOverlay visible={saving} />
     </div>
