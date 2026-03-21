@@ -157,6 +157,8 @@ function StoreApp() {
   const newArrivalsRafRef = useRef(null)
   const newArrivalsDraggingRef = useRef(false)
   const newArrivalsPointerXRef = useRef(0)
+  const newArrivalsLastMoveTsRef = useRef(0)
+  const newArrivalsMomentumRef = useRef(0)
   const newArrivalsDidDragRef = useRef(false)
   const newArrivalsAutoDirRef = useRef(-1)
   const newArrivalsPauseUntilRef = useRef(0)
@@ -520,9 +522,18 @@ function StoreApp() {
       const prevTs = newArrivalsLastTsRef.current
       newArrivalsLastTsRef.current = ts
 
-      if (prevTs != null && !newArrivalsDraggingRef.current && ts >= newArrivalsPauseUntilRef.current) {
+      if (prevTs != null && !newArrivalsDraggingRef.current) {
         const dt = (ts - prevTs) / 1000
-        applyNewArrivalsOffset(newArrivalsOffsetRef.current + newArrivalsAutoDirRef.current * speedPxPerSecond * dt)
+
+        // Smooth post-drag inertia so swipe/drag feels less rigid.
+        if (Math.abs(newArrivalsMomentumRef.current) > 5) {
+          applyNewArrivalsOffset(newArrivalsOffsetRef.current + newArrivalsMomentumRef.current * dt)
+          newArrivalsMomentumRef.current *= Math.pow(0.9, dt * 60)
+        }
+
+        if (ts >= newArrivalsPauseUntilRef.current && Math.abs(newArrivalsMomentumRef.current) <= 5) {
+          applyNewArrivalsOffset(newArrivalsOffsetRef.current + newArrivalsAutoDirRef.current * speedPxPerSecond * dt)
+        }
       }
 
       newArrivalsRafRef.current = window.requestAnimationFrame(tick)
@@ -549,6 +560,8 @@ function StoreApp() {
     pauseNewArrivalsAutoplay()
     newArrivalsDraggingRef.current = true
     newArrivalsPointerXRef.current = event.clientX
+    newArrivalsLastMoveTsRef.current = typeof performance !== 'undefined' ? performance.now() : Date.now()
+    newArrivalsMomentumRef.current = 0
     newArrivalsDidDragRef.current = false
     setIsNewArrivalsDragging(true)
   }
@@ -557,19 +570,40 @@ function StoreApp() {
     if (!newArrivalsDraggingRef.current) return
     pauseNewArrivalsAutoplay()
     const deltaX = event.clientX - newArrivalsPointerXRef.current
-    if (Math.abs(deltaX) > 2) newArrivalsDidDragRef.current = true
+    if (Math.abs(deltaX) > 1.5) newArrivalsDidDragRef.current = true
     if (Math.abs(deltaX) > 0.5) {
       // Keep autoplay direction aligned with the user's latest drag direction.
       newArrivalsAutoDirRef.current = deltaX > 0 ? 1 : -1
     }
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now()
+    const dt = Math.max(0.008, (now - newArrivalsLastMoveTsRef.current) / 1000)
+    const velocity = deltaX / dt
+    // Low-pass filtered velocity for smoother momentum after release.
+    newArrivalsMomentumRef.current = newArrivalsMomentumRef.current * 0.75 + velocity * 0.25
+    newArrivalsLastMoveTsRef.current = now
     newArrivalsPointerXRef.current = event.clientX
-    applyNewArrivalsOffset(newArrivalsOffsetRef.current + deltaX)
+    // Slight gain makes drag feel less stiff on both mouse and touch.
+    applyNewArrivalsOffset(newArrivalsOffsetRef.current + deltaX * 1.06)
   }
 
   const handleNewArrivalsPointerUp = () => {
     pauseNewArrivalsAutoplay()
     newArrivalsDraggingRef.current = false
     setIsNewArrivalsDragging(false)
+  }
+
+  const handleNewArrivalsWheel = (event) => {
+    if (!newArrivalsLoopWidthRef.current) return
+    event.preventDefault()
+    pauseNewArrivalsAutoplay()
+
+    // Use dominant axis so trackpad horizontal/vertical both feel natural.
+    const dominantDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
+    const move = dominantDelta * 0.9
+
+    applyNewArrivalsOffset(newArrivalsOffsetRef.current - move)
+    newArrivalsMomentumRef.current = newArrivalsMomentumRef.current * 0.6 - move * 6
+    if (Math.abs(move) > 0.5) newArrivalsAutoDirRef.current = move > 0 ? -1 : 1
   }
 
   const pillCategories = useMemo(() => {
@@ -1296,6 +1330,7 @@ function StoreApp() {
                 onPointerUp={handleNewArrivalsPointerUp}
                 onPointerCancel={handleNewArrivalsPointerUp}
                 onPointerLeave={handleNewArrivalsPointerUp}
+                onWheel={handleNewArrivalsWheel}
                 onDragStart={(event) => event.preventDefault()}
                 onClick={() => pauseNewArrivalsAutoplay()}
                 onClickCapture={(event) => {
