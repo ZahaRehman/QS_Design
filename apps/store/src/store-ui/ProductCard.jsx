@@ -144,7 +144,7 @@ const ProductCard = ({ product, index = 0, isNew = false, isTrending = false, on
           {product?.name}
         </h3>
         {categoryName ? (
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mt-1">
+          <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground mt-1">
             {categoryName}
           </p>
         ) : null}

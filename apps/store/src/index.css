@@ -1,4 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700&display=swap');
+/* Clean geometric sans — retail / minimal storefront style */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,13 +7,13 @@
 
 @layer base {
   :root {
-    --background: 40 33% 97%;
+    --background: 0 0% 100%;
     --foreground: 220 20% 10%;
 
-    --card: 40 30% 95%;
+    --card: 0 0% 100%;
     --card-foreground: 220 20% 10%;
 
-    --popover: 40 33% 97%;
+    --popover: 0 0% 100%;
     --popover-foreground: 220 20% 10%;
 
     --primary: 174 60% 30%;
@@ -36,7 +37,7 @@
 
     --radius: 0.75rem;
 
-    --sidebar-background: 40 30% 95%;
+    --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 220 20% 10%;
     --sidebar-primary: 174 60% 30%;
     --sidebar-primary-foreground: 40 33% 97%;
@@ -97,13 +98,14 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 
+  /* Headings use the same family as body; weight/size provide hierarchy (retail-clean look). */
   h1,
   h2,
   h3,
   h4,
   h5,
   h6 {
-    font-family: 'Playfair Display', serif;
+    @apply font-sans tracking-tight;
   }
 }
 

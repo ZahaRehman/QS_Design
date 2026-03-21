@@ -119,6 +119,8 @@ const cartLineMatches = (item, productId, canvasSizeId) =>
 function StoreApp() {
   const [route, setRoute] = useState(() => parseHashRoute())
   const isProductPage = route.page === 'product'
+  /** Home + product: fixed header that hides on scroll down, shows on scroll up */
+  const useAutoHideNav = route.page === 'product' || route.page === 'home'
 
   const [categories, setCategories] = useState([])
   const [loadingCategories, setLoadingCategories] = useState(true)
@@ -214,7 +216,7 @@ function StoreApp() {
   }, [])
 
   useEffect(() => {
-    if (!isProductPage) {
+    if (!useAutoHideNav) {
       navHiddenRef.current = false
       setNavHidden(false)
       lastScrollYRef.current = typeof window !== 'undefined' ? window.scrollY ?? 0 : 0
@@ -245,7 +247,7 @@ function StoreApp() {
       if (raf) window.cancelAnimationFrame(raf)
       window.removeEventListener('scroll', onScroll)
     }
-  }, [isProductPage])
+  }, [useAutoHideNav])
 
   useEffect(() => {
     let cancelled = false
@@ -1285,8 +1287,8 @@ function StoreApp() {
   return (
     <>
       <header
-        className={`z-50 bg-background/80 backdrop-blur border-b border-border transition-transform duration-300 ${
-          isProductPage
+        className={`z-50 bg-white text-black border-b border-black/10 backdrop-blur-md transition-transform duration-300 ${
+          useAutoHideNav
             ? `fixed top-0 left-0 right-0 ${navHidden ? '-translate-y-full' : 'translate-y-0'}`
             : 'sticky top-0 translate-y-0'
         }`}
@@ -1294,7 +1296,7 @@ function StoreApp() {
         <div className="container flex items-center justify-between h-16 md:h-20">
           <a
             href="#/"
-            className="flex items-center gap-2 font-display text-2xl font-bold tracking-tight text-foreground"
+            className="flex items-center gap-2 font-display text-2xl font-bold tracking-tight text-black"
           >
             <img src={qsLogoUrl} alt="QS logo" className="w-10 h-10 object-contain" />
           </a>
@@ -1302,7 +1304,7 @@ function StoreApp() {
           <nav className="hidden md:flex items-center gap-6 text-sm font-semibold">
             <button
               type="button"
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="text-black/75 hover:text-black transition-colors"
               onClick={() => {
                 if (route.page !== 'home') window.location.hash = '#/'
                 setTimeout(() => document.getElementById('home')?.scrollIntoView({ behavior: 'smooth' }), 60)
@@ -1312,7 +1314,7 @@ function StoreApp() {
             </button>
             <button
               type="button"
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="text-black/75 hover:text-black transition-colors"
               onClick={() => {
                 if (route.page !== 'home') window.location.hash = '#/'
                 setTimeout(
@@ -1325,7 +1327,7 @@ function StoreApp() {
             </button>
             <button
               type="button"
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="text-black/75 hover:text-black transition-colors"
               onClick={() => {
                 if (route.page !== 'home') window.location.hash = '#/'
                 setTimeout(
@@ -1338,7 +1340,7 @@ function StoreApp() {
             </button>
             <button
               type="button"
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="text-black/75 hover:text-black transition-colors"
               onClick={() => {
                 if (route.page !== 'home') window.location.hash = '#/'
                 setTimeout(
@@ -1353,13 +1355,13 @@ function StoreApp() {
 
           <button
             type="button"
-            className="relative p-2 rounded-full hover:bg-muted transition-colors"
+            className="relative p-2 rounded-full hover:bg-black/5 transition-colors"
             onClick={() => setCartOpen(true)}
             aria-label="Open cart"
           >
-            <ShoppingBag className="w-5 h-5 text-foreground" />
+            <ShoppingBag className="w-5 h-5 text-black" />
             {cartCount > 0 ? (
-              <span className="absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full bg-secondary text-secondary-foreground text-xs flex items-center justify-center font-semibold">
+              <span className="absolute -top-0.5 -right-0.5 min-w-5 h-5 px-1 rounded-full bg-white text-black text-xs flex items-center justify-center font-semibold">
                 {cartCount}
               </span>
             ) : null}
@@ -1367,7 +1369,7 @@ function StoreApp() {
         </div>
       </header>
 
-      <main className={isProductPage ? 'pt-16 md:pt-20' : undefined}>{routeMain}</main>
+      <main className={useAutoHideNav ? 'pt-16 md:pt-20' : undefined}>{routeMain}</main>
 
       {!cartOpen ? (
         <a
