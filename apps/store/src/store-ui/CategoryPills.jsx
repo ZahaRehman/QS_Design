@@ -5,7 +5,7 @@ const MotionDiv = motion.div
 
 const CategoryPills = ({ categories, activeCategoryId, onChange, disabled = false }) => {
   return (
-    <div className="flex gap-3 overflow-x-auto pb-2">
+    <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
       {categories.map((cat) => (
         <MotionButton
           key={cat.id}

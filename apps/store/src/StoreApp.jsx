@@ -29,6 +29,7 @@ const qsLogoUrl =
 const CART_KEY = 'qs_store_cart_v3'
 const FREE_SHIPPING_THRESHOLD_CENTS = 5000 * 100
 const SHIPPING_CHARGE_CENTS = 250 * 100
+const NEW_ARRIVAL_WINDOW_DAYS = 5
 const WHATSAPP_PHONE_E164 = '923180404599'
 const WHATSAPP_URL = `https://wa.me/${WHATSAPP_PHONE_E164}`
 
@@ -144,6 +145,21 @@ function StoreApp() {
   const touchStartXRef = useRef(null)
   const touchStartYRef = useRef(null)
   const didSwipeRef = useRef(false)
+  const lightboxTouchStartXRef = useRef(null)
+  const lightboxTouchStartYRef = useRef(null)
+  const didLightboxSwipeRef = useRef(false)
+  const newArrivalsViewportRef = useRef(null)
+  const newArrivalsTrackRef = useRef(null)
+  const newArrivalsSetRef = useRef(null)
+  const newArrivalsOffsetRef = useRef(0)
+  const newArrivalsLoopWidthRef = useRef(0)
+  const newArrivalsLastTsRef = useRef(null)
+  const newArrivalsRafRef = useRef(null)
+  const newArrivalsDraggingRef = useRef(false)
+  const newArrivalsPointerXRef = useRef(0)
+  const newArrivalsDidDragRef = useRef(false)
+  const newArrivalsAutoDirRef = useRef(-1)
+  const [isNewArrivalsDragging, setIsNewArrivalsDragging] = useState(false)
   const [navHidden, setNavHidden] = useState(false)
   const navHiddenRef = useRef(false)
   const lastScrollYRef = useRef(0)
@@ -441,19 +457,120 @@ function StoreApp() {
     })
   }, [allProducts])
 
-  const newArrivals = useMemo(() => sortedAllProducts.slice(0, 4), [sortedAllProducts])
+  const newArrivals = useMemo(() => {
+    const now = Date.now()
+    const windowMs = NEW_ARRIVAL_WINDOW_DAYS * 24 * 60 * 60 * 1000
+    return sortedAllProducts
+      .filter((p) => {
+        const createdAt = p?.created_at ? new Date(p.created_at).getTime() : 0
+        return createdAt > 0 && now - createdAt <= windowMs
+      })
+      .slice(0, 4)
+  }, [sortedAllProducts])
   const trending = useMemo(() => sortedAllProducts.slice(4, 8), [sortedAllProducts])
 
   const newIds = useMemo(() => new Set(newArrivals.map((p) => p.id)), [newArrivals])
   const trendingIds = useMemo(() => new Set(trending.map((p) => p.id)), [trending])
 
+  const normalizeNewArrivalsOffset = (nextOffset) => {
+    const loopWidth = newArrivalsLoopWidthRef.current
+    if (!loopWidth) return nextOffset
+    let value = nextOffset
+    while (value <= -2 * loopWidth) value += loopWidth
+    while (value > -loopWidth) value -= loopWidth
+    return value
+  }
+
+  const applyNewArrivalsOffset = (nextOffset) => {
+    const normalized = normalizeNewArrivalsOffset(nextOffset)
+    newArrivalsOffsetRef.current = normalized
+    if (newArrivalsTrackRef.current) {
+      newArrivalsTrackRef.current.style.transform = `translate3d(${normalized}px, 0, 0)`
+    }
+  }
+
+  useEffect(() => {
+    if (route.page !== 'home' || newArrivals.length === 0) return
+
+    const measure = () => {
+      const setWidth = newArrivalsSetRef.current?.offsetWidth ?? 0
+      if (!setWidth) return
+      newArrivalsLoopWidthRef.current = setWidth
+      applyNewArrivalsOffset(-setWidth)
+    }
+
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [route.page, newArrivals])
+
+  useEffect(() => {
+    if (route.page !== 'home' || newArrivals.length <= 1) return
+    const speedPxPerSecond = 40
+    newArrivalsLastTsRef.current = null
+
+    const tick = (ts) => {
+      const prevTs = newArrivalsLastTsRef.current
+      newArrivalsLastTsRef.current = ts
+
+      if (prevTs != null && !newArrivalsDraggingRef.current) {
+        const dt = (ts - prevTs) / 1000
+        applyNewArrivalsOffset(newArrivalsOffsetRef.current + newArrivalsAutoDirRef.current * speedPxPerSecond * dt)
+      }
+
+      newArrivalsRafRef.current = window.requestAnimationFrame(tick)
+    }
+
+    newArrivalsRafRef.current = window.requestAnimationFrame(tick)
+    return () => {
+      if (newArrivalsRafRef.current) window.cancelAnimationFrame(newArrivalsRafRef.current)
+      newArrivalsRafRef.current = null
+      newArrivalsLastTsRef.current = null
+    }
+  }, [route.page, newArrivals])
+
+  const handleNewArrivalsPointerDown = (event) => {
+    if (!newArrivalsLoopWidthRef.current) return
+    newArrivalsDraggingRef.current = true
+    newArrivalsPointerXRef.current = event.clientX
+    newArrivalsDidDragRef.current = false
+    setIsNewArrivalsDragging(true)
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+  }
+
+  const handleNewArrivalsPointerMove = (event) => {
+    if (!newArrivalsDraggingRef.current) return
+    const deltaX = event.clientX - newArrivalsPointerXRef.current
+    if (Math.abs(deltaX) > 2) newArrivalsDidDragRef.current = true
+    if (Math.abs(deltaX) > 0.5) {
+      // Keep autoplay direction aligned with the user's latest drag direction.
+      newArrivalsAutoDirRef.current = deltaX > 0 ? 1 : -1
+    }
+    newArrivalsPointerXRef.current = event.clientX
+    applyNewArrivalsOffset(newArrivalsOffsetRef.current + deltaX)
+  }
+
+  const handleNewArrivalsPointerUp = () => {
+    newArrivalsDraggingRef.current = false
+    setIsNewArrivalsDragging(false)
+  }
+
   const pillCategories = useMemo(() => {
     const base = [{ id: 'all', name: 'All' }]
+    const categoryIdsWithProducts = new Set(
+      (Array.isArray(allProducts) ? allProducts : []).flatMap((p) =>
+        Array.isArray(p?.product_categories)
+          ? p.product_categories.map((pc) => pc?.category_id).filter(Boolean)
+          : [],
+      ),
+    )
     const mapped = Array.isArray(categories)
-      ? categories.map((c) => ({ id: c.id, name: c.name }))
+      ? categories
+          .filter((c) => c?.id && categoryIdsWithProducts.has(c.id))
+          .map((c) => ({ id: c.id, name: c.name }))
       : []
     return [...base, ...mapped]
-  }, [categories])
+  }, [categories, allProducts])
 
   const relatedProducts = useMemo(() => {
     if (!selectedProduct) return []
@@ -627,7 +744,42 @@ function StoreApp() {
                               initial={{ opacity: 0 }}
                               animate={{ opacity: 1 }}
                               exit={{ opacity: 0 }}
-                              onClick={() => setLightboxOpen(false)}
+                              onTouchStart={(event) => {
+                                const touch = event.touches?.[0]
+                                if (!touch) return
+                                lightboxTouchStartXRef.current = touch.clientX
+                                lightboxTouchStartYRef.current = touch.clientY
+                                didLightboxSwipeRef.current = false
+                              }}
+                              onTouchEnd={(event) => {
+                                const startX = lightboxTouchStartXRef.current
+                                const startY = lightboxTouchStartYRef.current
+                                lightboxTouchStartXRef.current = null
+                                lightboxTouchStartYRef.current = null
+                                if (imgs.length <= 1 || startX == null || startY == null) return
+
+                                const touch = event.changedTouches?.[0]
+                                if (!touch) return
+
+                                const deltaX = touch.clientX - startX
+                                const deltaY = touch.clientY - startY
+                                const swipeThreshold = 40
+
+                                if (Math.abs(deltaX) > swipeThreshold && Math.abs(deltaX) > Math.abs(deltaY)) {
+                                  didLightboxSwipeRef.current = true
+                                  setSelectedImageIndex((idx) =>
+                                    deltaX < 0 ? (idx + 1) % imgs.length : (idx - 1 + imgs.length) % imgs.length,
+                                  )
+                                }
+                              }}
+                              onClick={() => {
+                                // Ignore close click right after a swipe gesture.
+                                if (didLightboxSwipeRef.current) {
+                                  didLightboxSwipeRef.current = false
+                                  return
+                                }
+                                setLightboxOpen(false)
+                              }}
                             >
                               <button
                                 type="button"
@@ -1109,30 +1261,62 @@ function StoreApp() {
           <Hero onExplore={handleExploreGallery} />
         </div>
 
-        <section className="container py-16 md:py-20">
-          <div className="flex items-center gap-3 mb-8">
-            <Sparkles className="w-5 h-5 text-accent" />
-            <h2 className="font-display text-2xl md:text-3xl font-bold">New Arrivals</h2>
-          </div>
-
-          {loadingAllProducts ? (
-            <p className="text-muted-foreground">Loading...</p>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-              {newArrivals.map((product, i) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  index={i}
-                  isNew
-                  isTrending={trendingIds.has(product.id)}
-                  onViewProduct={openProduct}
-                  onAddToCart={addToCart}
-                />
-              ))}
+        {loadingAllProducts || newArrivals.length > 0 ? (
+          <section className="container py-16 md:py-20">
+            <div className="flex items-center gap-3 mb-8">
+              <Sparkles className="w-5 h-5 text-accent" />
+              <h2 className="font-display text-2xl md:text-3xl font-bold">New Arrivals</h2>
             </div>
-          )}
-        </section>
+
+            {loadingAllProducts ? (
+              <p className="text-muted-foreground">Loading...</p>
+            ) : (
+              <div
+                ref={newArrivalsViewportRef}
+                className={`overflow-hidden touch-pan-y select-none ${isNewArrivalsDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+                onPointerDown={handleNewArrivalsPointerDown}
+                onPointerMove={handleNewArrivalsPointerMove}
+                onPointerUp={handleNewArrivalsPointerUp}
+                onPointerCancel={handleNewArrivalsPointerUp}
+                onPointerLeave={handleNewArrivalsPointerUp}
+                onDragStart={(event) => event.preventDefault()}
+                onClickCapture={(event) => {
+                  if (newArrivalsDidDragRef.current) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    newArrivalsDidDragRef.current = false
+                  }
+                }}
+              >
+                <div ref={newArrivalsTrackRef} className="flex will-change-transform">
+                  {[0, 1, 2].map((copyIdx) => (
+                    <div
+                      key={`new-arrivals-set-${copyIdx}`}
+                      ref={copyIdx === 1 ? newArrivalsSetRef : null}
+                      className="flex gap-4 md:gap-6 shrink-0 pr-4 md:pr-6"
+                    >
+                      {newArrivals.map((product, i) => (
+                        <div
+                          key={`${copyIdx}-${product.id}`}
+                          className="w-[76vw] sm:w-[46vw] md:w-[31vw] lg:w-[24vw] xl:w-[18vw] max-w-[320px] shrink-0"
+                        >
+                          <ProductCard
+                            product={product}
+                            index={i}
+                            isNew
+                            isTrending={trendingIds.has(product.id)}
+                            onViewProduct={openProduct}
+                            onAddToCart={addToCart}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        ) : null}
 
         <section className="container pb-16 md:pb-20" id="gallery">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
