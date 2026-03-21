@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle,
+  MessageCircle,
   X,
   Heart,
   RotateCcw,
@@ -28,6 +29,8 @@ const qsLogoUrl =
 const CART_KEY = 'qs_store_cart_v3'
 const FREE_SHIPPING_THRESHOLD_CENTS = 5000 * 100
 const SHIPPING_CHARGE_CENTS = 250 * 100
+const WHATSAPP_PHONE_E164 = '923180404599'
+const WHATSAPP_URL = `https://wa.me/${WHATSAPP_PHONE_E164}`
 
 const parseHashRoute = () => {
   const raw = window.location.hash || '#/'
@@ -1321,6 +1324,18 @@ function StoreApp() {
       </header>
 
       <main>{routeMain}</main>
+
+      {!cartOpen ? (
+        <a
+          href={WHATSAPP_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="fixed bottom-6 right-6 z-60 h-14 w-14 rounded-full bg-[#25D366] text-white shadow-[0_12px_30px_rgba(37,211,102,0.35)] hover:bg-[#1fb457] transition-colors flex items-center justify-center"
+          aria-label="Message us on WhatsApp"
+        >
+          <MessageCircle className="h-7 w-7" />
+        </a>
+      ) : null}
 
       <CartDrawer
         isOpen={cartOpen}
