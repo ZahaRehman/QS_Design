@@ -492,7 +492,7 @@ function StoreApp() {
     }
   }
 
-  const pauseNewArrivalsAutoplay = (ms = 3000) => {
+  const pauseNewArrivalsAutoplay = (ms = 2000) => {
     if (typeof performance !== 'undefined') {
       newArrivalsPauseUntilRef.current = performance.now() + ms
     }
