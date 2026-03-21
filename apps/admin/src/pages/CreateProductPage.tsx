@@ -15,7 +15,8 @@ const newCanvasSizeRow = () => ({
     typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
       ? crypto.randomUUID()
       : `size-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-  label: "",
+  width: "",
+  height: "",
   price: "",
 });
 
@@ -26,7 +27,7 @@ export default function CreateProductPage() {
   const [localError, setLocalError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [currency, setCurrency] = useState("USD");
+  const currency = "PKR";
   const [canvasSizeRows, setCanvasSizeRows] = useState(() => [newCanvasSizeRow()]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [files, setFiles] = useState<File[]>([]);
@@ -43,8 +44,14 @@ export default function CreateProductPage() {
     setCanvasSizeRows((prev) => prev.filter((s) => s.id !== id));
   };
 
-  const updateSize = (id: string, field: "label" | "price", value: string) => {
+  const updateSize = (id: string, field: "width" | "height" | "price", value: string) => {
     setCanvasSizeRows((prev) => prev.map((s) => (s.id === id ? { ...s, [field]: value } : s)));
+  };
+
+  const makeCanvasLabel = (width: string, height: string) => {
+    // Store label is what the store UI displays for canvas sizes.
+    // Admin should NOT type the x / ×; we always format it here.
+    return `Canvas ${width}×${height}"`;
   };
 
   const toggleCat = (catId: string) => {
@@ -60,28 +67,42 @@ export default function CreateProductPage() {
       setLocalError("Product name is required.");
       return;
     }
-    if (currency.length !== 3) {
-      setLocalError("Currency must be a 3-letter code.");
-      return;
-    }
 
     const canvasSizes: Array<{ id: string; label: string; priceCents: number }> = [];
     for (const row of canvasSizeRows) {
-      const label = row.label.trim();
-      if (!label) continue;
-      const rowPrice = Number(row.price);
+      const width = row.width.trim();
+      const height = row.height.trim();
+      if (!width && !height) continue;
+      if (!width || !height) {
+        setLocalError("Each canvas size must include both width and height.");
+        return;
+      }
+
+      const widthNum = Number(width);
+      const heightNum = Number(height);
+      if (!Number.isFinite(widthNum) || widthNum <= 0 || !Number.isFinite(heightNum) || heightNum <= 0) {
+        setLocalError("Canvas width and height must be valid numbers greater than 0.");
+        return;
+      }
+
+      const priceTrim = row.price.trim();
+      if (!priceTrim) {
+        setLocalError("Each canvas size must include a valid price.");
+        return;
+      }
+      const rowPrice = Number(priceTrim);
       if (!Number.isFinite(rowPrice) || rowPrice < 0) {
-        setLocalError("Each canvas size with a label needs a valid price.");
+        setLocalError("Canvas price must be a valid number (>= 0).");
         return;
       }
       canvasSizes.push({
         id: row.id,
-        label,
+        label: makeCanvasLabel(width, height),
         priceCents: Math.round(rowPrice * 100),
       });
     }
     if (canvasSizes.length === 0) {
-      setLocalError("Add at least one canvas size with label and price.");
+      setLocalError("Add at least one canvas size with width, height, and price.");
       return;
     }
 
@@ -96,7 +117,6 @@ export default function CreateProductPage() {
       });
       setName("");
       setDescription("");
-      setCurrency("USD");
       setCanvasSizeRows([newCanvasSizeRow()]);
       setSelectedCategoryIds([]);
       setFiles([]);
@@ -141,16 +161,6 @@ export default function CreateProductPage() {
                 rows={3}
               />
             </div>
-            <div className="space-y-2 max-w-[120px]">
-              <Label>Currency</Label>
-              <Input
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value.toUpperCase().slice(0, 3))}
-                placeholder="USD"
-                maxLength={3}
-                required
-              />
-            </div>
           </div>
 
           <div className="bg-card border rounded-lg p-5 space-y-4">
@@ -175,17 +185,29 @@ export default function CreateProductPage() {
             <div className="space-y-2">
               {canvasSizeRows.map((size, i) => (
                 <div key={size.id} className="flex items-center gap-3">
-                  <div className="flex-1">
+                  <div className="flex-1 flex items-center gap-2">
                     <Input
-                      placeholder={
-                        i === 0
-                          ? 'e.g. 12×16 inches (listing "from" price)'
-                          : "e.g. 18×24 inches"
-                      }
-                      value={size.label}
-                      onChange={(e) => updateSize(size.id, "label", e.target.value)}
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      className="w-24"
+                      placeholder={i === 0 ? "Width (e.g. 12)" : "Width"}
+                      value={size.width}
+                      onChange={(e) => updateSize(size.id, "width", e.target.value)}
                       disabled={catalogLoading}
                     />
+                    <span className="text-sm font-semibold text-muted-foreground">×</span>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      className="w-24"
+                      placeholder={i === 0 ? "Height (e.g. 16)" : "Height"}
+                      value={size.height}
+                      onChange={(e) => updateSize(size.id, "height", e.target.value)}
+                      disabled={catalogLoading}
+                    />
+                    <span className="text-sm font-semibold text-muted-foreground">"</span>
                   </div>
                   <div className="w-28">
                     <Input

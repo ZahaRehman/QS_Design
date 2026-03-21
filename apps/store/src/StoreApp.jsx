@@ -684,50 +684,35 @@ function StoreApp() {
                   {selectedProductCanvasSizes.length > 0 ? (
                     <div className="mt-8">
                       <h3 className="font-display text-lg font-semibold mb-3">Canvas size</h3>
-                      <div className="rounded-xl border border-border overflow-x-auto">
-                        <table className="w-full min-w-[320px] text-sm text-left">
-                          <thead className="bg-muted/50 border-b border-border">
-                            <tr>
-                              <th className="p-3 md:p-4 font-semibold text-foreground">Size</th>
-                              <th className="p-3 md:p-4 font-semibold text-foreground">Price</th>
-                              <th className="p-3 md:p-4 w-14 text-center font-semibold text-foreground">
-                                Select
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {selectedProductCanvasSizes.map((row) => {
-                              const active = selectedCanvasSizeId === row.id
-                              return (
-                                <tr
-                                  key={row.id}
-                                  className={`border-t border-border cursor-pointer transition-colors ${
-                                    active ? 'bg-primary/10' : 'hover:bg-muted/40'
-                                  }`}
-                                  onClick={() => setSelectedCanvasSizeId(row.id)}
-                                >
-                                  <td className="p-3 md:p-4 align-middle font-medium">{row.label}</td>
-                                  <td className="p-3 md:p-4 align-middle font-display font-bold text-primary">
-                                    {formatPrice({
-                                      priceCents: row.price_cents,
-                                      currency: selectedProduct.currency,
-                                    })}
-                                  </td>
-                                  <td className="p-3 md:p-4 align-middle text-center">
-                                    <input
-                                      type="radio"
-                                      name="canvas-size"
-                                      checked={active}
-                                      onChange={() => setSelectedCanvasSizeId(row.id)}
-                                      className="w-4 h-4 accent-primary cursor-pointer"
-                                      aria-label={`Select size ${row.label}`}
-                                    />
-                                  </td>
-                                </tr>
-                              )
-                            })}
-                          </tbody>
-                        </table>
+                      <div
+                        role="radiogroup"
+                        aria-label="Canvas size"
+                        className="flex flex-wrap gap-3"
+                      >
+                        {selectedProductCanvasSizes.map((row) => {
+                          const active = selectedCanvasSizeId === row.id
+                          return (
+                            <label
+                              key={row.id}
+                              className={`inline-flex items-center justify-center px-5 py-3 rounded-full border cursor-pointer select-none transition-colors ${
+                                active
+                                  ? 'border-primary bg-primary/15 text-foreground'
+                                  : 'border-border bg-card text-foreground hover:bg-muted/40'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name="canvas-size"
+                                value={row.id}
+                                checked={active}
+                                onChange={() => setSelectedCanvasSizeId(row.id)}
+                                className="sr-only"
+                                aria-label={`Select size ${row.label}`}
+                              />
+                              <span className="whitespace-nowrap text-sm font-semibold">{row.label}</span>
+                            </label>
+                          )
+                        })}
                       </div>
                     </div>
                   ) : null}
