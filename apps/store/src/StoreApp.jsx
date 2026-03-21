@@ -159,6 +159,7 @@ function StoreApp() {
   const newArrivalsPointerXRef = useRef(0)
   const newArrivalsDidDragRef = useRef(false)
   const newArrivalsAutoDirRef = useRef(-1)
+  const newArrivalsPauseUntilRef = useRef(0)
   const [isNewArrivalsDragging, setIsNewArrivalsDragging] = useState(false)
   const [navHidden, setNavHidden] = useState(false)
   const navHiddenRef = useRef(false)
@@ -489,6 +490,12 @@ function StoreApp() {
     }
   }
 
+  const pauseNewArrivalsAutoplay = (ms = 3000) => {
+    if (typeof performance !== 'undefined') {
+      newArrivalsPauseUntilRef.current = performance.now() + ms
+    }
+  }
+
   useEffect(() => {
     if (route.page !== 'home' || newArrivals.length === 0) return
 
@@ -513,7 +520,7 @@ function StoreApp() {
       const prevTs = newArrivalsLastTsRef.current
       newArrivalsLastTsRef.current = ts
 
-      if (prevTs != null && !newArrivalsDraggingRef.current) {
+      if (prevTs != null && !newArrivalsDraggingRef.current && ts >= newArrivalsPauseUntilRef.current) {
         const dt = (ts - prevTs) / 1000
         applyNewArrivalsOffset(newArrivalsOffsetRef.current + newArrivalsAutoDirRef.current * speedPxPerSecond * dt)
       }
@@ -531,15 +538,24 @@ function StoreApp() {
 
   const handleNewArrivalsPointerDown = (event) => {
     if (!newArrivalsLoopWidthRef.current) return
+    if (event.pointerType === 'mouse' && event.button !== 0) return
+
+    const interactive = event.target?.closest?.('button, a, input, textarea, select, label')
+    if (interactive) {
+      pauseNewArrivalsAutoplay()
+      return
+    }
+
+    pauseNewArrivalsAutoplay()
     newArrivalsDraggingRef.current = true
     newArrivalsPointerXRef.current = event.clientX
     newArrivalsDidDragRef.current = false
     setIsNewArrivalsDragging(true)
-    event.currentTarget.setPointerCapture?.(event.pointerId)
   }
 
   const handleNewArrivalsPointerMove = (event) => {
     if (!newArrivalsDraggingRef.current) return
+    pauseNewArrivalsAutoplay()
     const deltaX = event.clientX - newArrivalsPointerXRef.current
     if (Math.abs(deltaX) > 2) newArrivalsDidDragRef.current = true
     if (Math.abs(deltaX) > 0.5) {
@@ -551,6 +567,7 @@ function StoreApp() {
   }
 
   const handleNewArrivalsPointerUp = () => {
+    pauseNewArrivalsAutoplay()
     newArrivalsDraggingRef.current = false
     setIsNewArrivalsDragging(false)
   }
@@ -1280,6 +1297,7 @@ function StoreApp() {
                 onPointerCancel={handleNewArrivalsPointerUp}
                 onPointerLeave={handleNewArrivalsPointerUp}
                 onDragStart={(event) => event.preventDefault()}
+                onClick={() => pauseNewArrivalsAutoplay()}
                 onClickCapture={(event) => {
                   if (newArrivalsDidDragRef.current) {
                     event.preventDefault()
