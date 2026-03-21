@@ -55,7 +55,7 @@ Deno.serve(async (request) => {
 
   try {
     const selectStr =
-      'id,name,slug,description,price_cents,currency,is_active,created_at,' +
+      'id,name,slug,description,currency,is_active,created_at,canvas_sizes,' +
       'product_categories(category_id,categories(id,name,slug)),' +
       'product_images(id,image_url,cloudinary_public_id,alt_text,sort_order)'
 

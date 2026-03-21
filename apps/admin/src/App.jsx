@@ -157,10 +157,10 @@ function App() {
   const handleCreateProduct = async ({
     name,
     description,
-    priceCents,
     currency,
     categoryIds,
     files,
+    canvasSizes,
   }) => {
     if (!session?.accessToken) throw new Error('Missing session token')
     if (files.length > 10) {
@@ -181,10 +181,10 @@ function App() {
         accessToken: session.accessToken,
         name,
         description,
-        priceCents,
         currency,
         categoryIds,
         images: uploadedImages,
+        canvasSizes,
       })
 
       setProducts((current) => [data.product, ...current])
@@ -223,11 +223,11 @@ function App() {
     id,
     name,
     description,
-    priceCents,
     currency,
     categoryIds,
     files,
     imageIdsToRemove,
+    canvasSizes,
   }) => {
     if (!session?.accessToken) throw new Error('Missing session token')
 
@@ -267,11 +267,11 @@ function App() {
         productId: id,
         name,
         description,
-        priceCents,
         currency,
         categoryIds,
         imagesToAdd: uploadedImages,
         imageIdsToRemove: uniqueImageIdsToRemove,
+        canvasSizes,
       })
 
       setProducts((current) => current.map((p) => (p.id === id ? data.product : p)))

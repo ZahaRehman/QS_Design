@@ -80,7 +80,7 @@ const CartDrawer = ({
                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
                   {items.map((item) => (
                     <MotionDiv
-                      key={item.productId}
+                      key={`${item.productId}-${item.snapshot?.canvasSizeId ?? 'base'}`}
                       layout
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
@@ -97,6 +97,11 @@ const CartDrawer = ({
                         <h4 className="font-display font-semibold text-sm truncate">
                           {item.snapshot?.name}
                         </h4>
+                        {item.snapshot?.canvasSizeLabel ? (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Size: {item.snapshot.canvasSizeLabel}
+                          </p>
+                        ) : null}
                         <p className="text-xs text-muted-foreground">Qty controls</p>
                         <p className="text-sm font-bold text-primary mt-1">
                           {formatPrice({
@@ -108,7 +113,13 @@ const CartDrawer = ({
                         <div className="flex items-center gap-2 mt-2">
                           <button
                             type="button"
-                            onClick={() => onUpdateQuantity?.(item.productId, item.qty - 1)}
+                            onClick={() =>
+                              onUpdateQuantity?.(
+                                item.productId,
+                                item.snapshot?.canvasSizeId ?? null,
+                                item.qty - 1,
+                              )
+                            }
                             className="w-7 h-7 rounded-full bg-muted flex items-center justify-center hover:bg-border transition-colors"
                             aria-label="Decrease quantity"
                           >
@@ -119,7 +130,13 @@ const CartDrawer = ({
 
                           <button
                             type="button"
-                            onClick={() => onUpdateQuantity?.(item.productId, item.qty + 1)}
+                            onClick={() =>
+                              onUpdateQuantity?.(
+                                item.productId,
+                                item.snapshot?.canvasSizeId ?? null,
+                                item.qty + 1,
+                              )
+                            }
                             className="w-7 h-7 rounded-full bg-muted flex items-center justify-center hover:bg-border transition-colors"
                             aria-label="Increase quantity"
                           >
@@ -128,7 +145,9 @@ const CartDrawer = ({
 
                           <button
                             type="button"
-                            onClick={() => onRemoveItem?.(item.productId)}
+                            onClick={() =>
+                              onRemoveItem?.(item.productId, item.snapshot?.canvasSizeId ?? null)
+                            }
                             className="ml-auto text-xs text-muted-foreground hover:text-destructive transition-colors"
                           >
                             Remove

@@ -38,13 +38,41 @@ const getPrimaryCategoryName = (product) => {
   return names[0] || ''
 }
 
+const getCanvasSizes = (product) => {
+  const raw = product?.canvas_sizes
+  if (!Array.isArray(raw)) return []
+  return raw.filter(
+    (s) =>
+      s &&
+      typeof s === 'object' &&
+      typeof s.id === 'string' &&
+      s.id &&
+      typeof s.label === 'string' &&
+      s.label &&
+      Number.isFinite(Number(s.price_cents)),
+  )
+}
+
+/** First canvas size price (same order as admin / API). */
+const getFirstCanvasPriceCents = (product) => {
+  const sizes = getCanvasSizes(product)
+  if (sizes.length === 0) return null
+  const cents = Math.round(Number(sizes[0].price_cents))
+  return Number.isFinite(cents) ? cents : null
+}
+
 const ProductCard = ({ product, index = 0, isNew = false, isTrending = false, onViewProduct, onAddToCart }) => {
   const imageUrl = getPrimaryImageUrl(product)
   const categoryName = getPrimaryCategoryName(product)
+  const sizes = getCanvasSizes(product)
+  const listingCents = getFirstCanvasPriceCents(product)
 
   const priceText =
-    product?.price_cents != null
-      ? formatPrice({ priceCents: product.price_cents, currency: product.currency })
+    listingCents != null
+      ? `${sizes.length > 1 ? 'From ' : ''}${formatPrice({
+          priceCents: listingCents,
+          currency: product.currency,
+        })}`
       : ''
 
   return (

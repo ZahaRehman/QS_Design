@@ -36,6 +36,21 @@ const clampString = (v: unknown, maxLen: number) => {
   return s
 }
 
+type CartLine = {
+  productId: string
+  qty: number
+  snapshot: {
+    name: string
+    imageUrl: string | null
+    priceCents: number
+    currency: string
+    canvasSizeId: string | null
+    canvasSizeLabel: string | null
+  }
+  canvas_size_id: string | null
+  canvas_size_label: string | null
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -75,9 +90,9 @@ Deno.serve(async (request) => {
       if (!city) return json(400, { error: 'city is required' })
       if (!postalCode) return json(400, { error: 'postalCode is required' })
 
-      const normalizedItems = cartItems
+      const parsedItems = cartItems
         .map((item) => {
-          const productId = typeof item?.productId === 'string' ? item.productId : null
+          const productId = typeof item?.productId === 'string' ? item.productId.trim() : ''
           const qty = Number(item?.qty)
           const snapshot = item?.snapshot
 
@@ -85,27 +100,107 @@ Deno.serve(async (request) => {
           const currency = typeof snapshot?.currency === 'string' ? snapshot.currency : 'USD'
           const name = clampString(snapshot?.name, 200)
           const imageUrl = typeof snapshot?.imageUrl === 'string' ? snapshot.imageUrl : null
+          const canvasSizeIdRaw =
+            typeof snapshot?.canvasSizeId === 'string' ? snapshot.canvasSizeId.trim() : ''
+          const canvasSizeLabel = clampString(snapshot?.canvasSizeLabel, 200) || null
 
           const unitPriceCents = Number.isFinite(priceCents) ? Math.round(priceCents) : 0
           const safeQty = Number.isFinite(qty) ? Math.floor(qty) : 0
 
-          if (!name || safeQty <= 0 || unitPriceCents < 0) return null
+          if (!productId || !name || safeQty <= 0 || unitPriceCents < 0) return null
 
           return {
             productId,
             qty: safeQty,
+            clientPriceCents: unitPriceCents,
             snapshot: {
               name,
               imageUrl,
               priceCents: unitPriceCents,
               currency,
+              canvasSizeId: canvasSizeIdRaw || null,
+              canvasSizeLabel,
             },
           }
         })
-        .filter(Boolean)
+        .filter(Boolean) as Array<{
+        productId: string
+        qty: number
+        clientPriceCents: number
+        snapshot: CartLine['snapshot']
+      }>
 
-      if (normalizedItems.length === 0) {
+      if (parsedItems.length === 0) {
         return json(400, { error: 'Invalid cart items' })
+      }
+
+      const productIds = [...new Set(parsedItems.map((it) => it.productId))]
+      const { data: dbProducts, error: productsError } = await serviceClient
+        .from('products')
+        .select('id,currency,canvas_sizes,is_active')
+        .in('id', productIds)
+
+      if (productsError) {
+        return json(400, { error: productsError.message })
+      }
+
+      const productMap = new Map((dbProducts ?? []).map((p) => [p.id, p]))
+
+      const normalizedItems: CartLine[] = []
+
+      for (const it of parsedItems) {
+        const p = productMap.get(it.productId)
+        if (!p || !p.is_active) {
+          return json(400, { error: 'Invalid or inactive product in cart' })
+        }
+
+        const prodCurrency = String(p.currency ?? 'USD').toUpperCase()
+        const clientCurrency = String(it.snapshot.currency ?? 'USD').toUpperCase()
+        if (clientCurrency !== prodCurrency) {
+          return json(400, { error: 'Currency mismatch for a product in cart' })
+        }
+
+        const sizes = Array.isArray(p.canvas_sizes) ? p.canvas_sizes : []
+        if (sizes.length === 0) {
+          return json(400, { error: 'Product has no canvas sizes configured' })
+        }
+
+        const sid = it.snapshot.canvasSizeId
+        if (!sid) {
+          return json(400, { error: 'Canvas size is required for this product' })
+        }
+        const entry = sizes.find(
+          (s: JsonRecord) => s && typeof s === 'object' && typeof s.id === 'string' && s.id === sid,
+        ) as JsonRecord | undefined
+        if (!entry) {
+          return json(400, { error: 'Invalid canvas size for product' })
+        }
+        const entryPrice = Math.round(Number(entry.price_cents))
+        if (!Number.isInteger(entryPrice) || entryPrice < 0) {
+          return json(400, { error: 'Invalid canvas size price' })
+        }
+        if (it.clientPriceCents !== entryPrice) {
+          return json(400, { error: 'Price does not match selected canvas size' })
+        }
+        const unitPriceCents = entryPrice
+        const canvas_size_id = sid
+        const lbl = typeof entry.label === 'string' ? entry.label.trim() : ''
+        const canvas_size_label = lbl ? lbl.slice(0, 200) : null
+
+        normalizedItems.push({
+          productId: it.productId,
+          qty: it.qty,
+          snapshot: {
+            name: it.snapshot.name,
+            imageUrl: it.snapshot.imageUrl,
+            priceCents: unitPriceCents,
+            currency: prodCurrency,
+            canvasSizeId: canvas_size_id,
+            canvasSizeLabel: canvas_size_label,
+          },
+          canvas_size_id,
+          canvas_size_label,
+        })
       }
 
       const currency = String(normalizedItems[0].snapshot.currency ?? 'USD').toUpperCase()
@@ -164,6 +259,8 @@ Deno.serve(async (request) => {
         unit_price_cents: it.snapshot.priceCents,
         qty: it.qty,
         line_total_cents: it.qty * it.snapshot.priceCents,
+        canvas_size_id: it.canvas_size_id,
+        canvas_size_label: it.canvas_size_label,
       }))
 
       const { error: itemsError } = await serviceClient.from('order_items').insert(itemRows)

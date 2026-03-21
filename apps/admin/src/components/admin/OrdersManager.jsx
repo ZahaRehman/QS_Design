@@ -245,6 +245,12 @@ export function OrdersManager({ orders, loading, onUpdateOrderStatus }) {
                           <div className="order-item-name">{it.name_snapshot || 'Item'}</div>
                           <div className="muted" style={{ marginTop: 4, fontSize: 13 }}>
                             Qty: {it.qty} • Unit: {money({ cents: it.unit_price_cents, currency: modalOrder.currency })}
+                            {it.canvas_size_label ? (
+                              <>
+                                {' '}
+                                • Size: {it.canvas_size_label}
+                              </>
+                            ) : null}
                           </div>
                           <div className="order-item-total">
                             Line total:{' '}

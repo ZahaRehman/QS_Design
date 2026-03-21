@@ -25,7 +25,7 @@ import Footer from './store-ui/Footer.jsx'
 const qsLogoUrl =
   'https://res.cloudinary.com/dt0becq6s/image/upload/v1773929899/Artistic_QS_logo_with_vibrant_splashes-removebg-preview_jelzag.png'
 
-const CART_KEY = 'qs_store_cart_v1'
+const CART_KEY = 'qs_store_cart_v3'
 const FREE_SHIPPING_THRESHOLD_CENTS = 5000 * 100
 const SHIPPING_CHARGE_CENTS = 250 * 100
 
@@ -94,6 +94,25 @@ const getPrimaryCategoryName = (product) => {
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
 
+const getCanvasSizes = (product) => {
+  const raw = product?.canvas_sizes
+  if (!Array.isArray(raw)) return []
+  return raw.filter(
+    (s) =>
+      s &&
+      typeof s === 'object' &&
+      typeof s.id === 'string' &&
+      s.id &&
+      typeof s.label === 'string' &&
+      s.label &&
+      Number.isFinite(Number(s.price_cents)),
+  )
+}
+
+const cartLineMatches = (item, productId, canvasSizeId) =>
+  item.productId === productId &&
+  (item.snapshot?.canvasSizeId ?? null) === (canvasSizeId ?? null)
+
 function StoreApp() {
   const [route, setRoute] = useState(() => parseHashRoute())
 
@@ -113,6 +132,7 @@ function StoreApp() {
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [detailsError, setDetailsError] = useState('')
   const [selectedProduct, setSelectedProduct] = useState(null)
+  const [selectedCanvasSizeId, setSelectedCanvasSizeId] = useState(null)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const touchStartXRef = useRef(null)
@@ -159,6 +179,22 @@ function StoreApp() {
   const shippingFormatted = formatPrice({ priceCents: shippingCents, currency: cartCurrency })
   const orderTotalCents = cartTotalCents + shippingCents
   const orderTotalFormatted = formatPrice({ priceCents: orderTotalCents, currency: cartCurrency })
+
+  const selectedProductCanvasSizes = useMemo(
+    () => getCanvasSizes(selectedProduct),
+    [selectedProduct],
+  )
+
+  const selectedProductUnitCents = useMemo(() => {
+    if (!selectedProduct) return 0
+    const sizes = selectedProductCanvasSizes
+    if (sizes.length === 0) return 0
+    if (selectedCanvasSizeId) {
+      const row = sizes.find((s) => s.id === selectedCanvasSizeId)
+      if (row) return Math.round(Number(row.price_cents))
+    }
+    return Math.round(Number(sizes[0].price_cents))
+  }, [selectedProduct, selectedProductCanvasSizes, selectedCanvasSizeId])
 
   useEffect(() => {
     window.localStorage.setItem(CART_KEY, JSON.stringify(cartItems))
@@ -272,6 +308,15 @@ function StoreApp() {
   }, [route.page, route.productId])
 
   useEffect(() => {
+    if (!selectedProduct) {
+      setSelectedCanvasSizeId(null)
+      return
+    }
+    const sizes = getCanvasSizes(selectedProduct)
+    setSelectedCanvasSizeId(sizes[0]?.id ?? null)
+  }, [selectedProduct])
+
+  useEffect(() => {
     if (!lightboxOpen) return
     const onKeyDown = (event) => {
       if (event.key === 'Escape') setLightboxOpen(false)
@@ -294,18 +339,29 @@ function StoreApp() {
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  const addToCart = (product) => {
+  const addToCart = (product, options = {}) => {
     if (!product?.id) return
+
+    const sizes = getCanvasSizes(product)
+    if (sizes.length === 0) return
+
+    const pickId = options.canvasSizeId ?? sizes[0].id
+    const entry = sizes.find((s) => s.id === pickId) ?? sizes[0]
+    const canvasSizeId = entry.id
+    const canvasSizeLabel = entry.label
+    const priceCents = Math.round(Number(entry.price_cents))
 
     const snapshot = {
       name: product.name ?? 'Product',
       imageUrl: getPrimaryImageUrl(product),
-      priceCents: product.price_cents ?? 0,
+      priceCents,
       currency: product.currency ?? 'USD',
+      canvasSizeId,
+      canvasSizeLabel,
     }
 
     setCartItems((prev) => {
-      const idx = prev.findIndex((item) => item.productId === product.id)
+      const idx = prev.findIndex((item) => cartLineMatches(item, product.id, canvasSizeId))
       if (idx >= 0) {
         const next = [...prev]
         next[idx] = { ...next[idx], qty: (next[idx].qty ?? 0) + 1 }
@@ -318,16 +374,20 @@ function StoreApp() {
     setCartOpen(true)
   }
 
-  const setQty = (productId, nextQty) => {
+  const setQty = (productId, canvasSizeId, nextQty) => {
     setCartItems((prev) => {
       const qty = Math.max(0, nextQty)
-      if (qty === 0) return prev.filter((item) => item.productId !== productId)
-      return prev.map((item) => (item.productId === productId ? { ...item, qty } : item))
+      if (qty === 0) {
+        return prev.filter((item) => !cartLineMatches(item, productId, canvasSizeId))
+      }
+      return prev.map((item) =>
+        cartLineMatches(item, productId, canvasSizeId) ? { ...item, qty } : item,
+      )
     })
   }
 
-  const removeItem = (productId) => {
-    setCartItems((prev) => prev.filter((item) => item.productId !== productId))
+  const removeItem = (productId, canvasSizeId) => {
+    setCartItems((prev) => prev.filter((item) => !cartLineMatches(item, productId, canvasSizeId)))
   }
 
   const sortedAllProducts = useMemo(() => {
@@ -608,14 +668,12 @@ function StoreApp() {
                   </h1>
                   <p className="text-muted-foreground mt-1">by QS Artists</p>
 
-                  {selectedProduct.price_cents != null ? (
-                    <p className="text-3xl font-display font-bold text-primary mt-6">
-                      {formatPrice({
-                        priceCents: selectedProduct.price_cents,
-                        currency: selectedProduct.currency,
-                      })}
-                    </p>
-                  ) : null}
+                  <p className="text-3xl font-display font-bold text-primary mt-6">
+                    {formatPrice({
+                      priceCents: selectedProductUnitCents,
+                      currency: selectedProduct.currency,
+                    })}
+                  </p>
 
                   <p className="text-xs text-muted-foreground mt-1">Inclusive of all taxes</p>
 
@@ -623,10 +681,63 @@ function StoreApp() {
                     <p className="text-muted-foreground leading-relaxed mt-8">{selectedProduct.description}</p>
                   ) : null}
 
+                  {selectedProductCanvasSizes.length > 0 ? (
+                    <div className="mt-8">
+                      <h3 className="font-display text-lg font-semibold mb-3">Canvas size</h3>
+                      <div className="rounded-xl border border-border overflow-x-auto">
+                        <table className="w-full min-w-[320px] text-sm text-left">
+                          <thead className="bg-muted/50 border-b border-border">
+                            <tr>
+                              <th className="p-3 md:p-4 font-semibold text-foreground">Size</th>
+                              <th className="p-3 md:p-4 font-semibold text-foreground">Price</th>
+                              <th className="p-3 md:p-4 w-14 text-center font-semibold text-foreground">
+                                Select
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedProductCanvasSizes.map((row) => {
+                              const active = selectedCanvasSizeId === row.id
+                              return (
+                                <tr
+                                  key={row.id}
+                                  className={`border-t border-border cursor-pointer transition-colors ${
+                                    active ? 'bg-primary/10' : 'hover:bg-muted/40'
+                                  }`}
+                                  onClick={() => setSelectedCanvasSizeId(row.id)}
+                                >
+                                  <td className="p-3 md:p-4 align-middle font-medium">{row.label}</td>
+                                  <td className="p-3 md:p-4 align-middle font-display font-bold text-primary">
+                                    {formatPrice({
+                                      priceCents: row.price_cents,
+                                      currency: selectedProduct.currency,
+                                    })}
+                                  </td>
+                                  <td className="p-3 md:p-4 align-middle text-center">
+                                    <input
+                                      type="radio"
+                                      name="canvas-size"
+                                      checked={active}
+                                      onChange={() => setSelectedCanvasSizeId(row.id)}
+                                      className="w-4 h-4 accent-primary cursor-pointer"
+                                      aria-label={`Select size ${row.label}`}
+                                    />
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div className="flex gap-3 mt-8 sticky bottom-6 md:static">
                     <button
                       type="button"
-                      onClick={() => addToCart(selectedProduct)}
+                      onClick={() =>
+                        addToCart(selectedProduct, { canvasSizeId: selectedCanvasSizeId })
+                      }
                       className="flex-1 inline-flex items-center justify-center gap-2 py-4 rounded-full bg-primary text-primary-foreground font-semibold text-sm hover:bg-teal-light transition-colors"
                       disabled={detailsLoading}
                     >
@@ -878,7 +989,10 @@ function StoreApp() {
 
                   <div className="space-y-3 max-h-60 overflow-y-auto">
                     {cartItems.map((item) => (
-                      <div key={item.productId} className="flex gap-3">
+                      <div
+                        key={`${item.productId}-${item.snapshot?.canvasSizeId ?? 'base'}`}
+                        className="flex gap-3"
+                      >
                         <img
                           src={item.snapshot?.imageUrl || ''}
                           alt={item.snapshot?.name ?? 'Cart item'}
@@ -886,6 +1000,11 @@ function StoreApp() {
                         />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{item.snapshot?.name}</p>
+                          {item.snapshot?.canvasSizeLabel ? (
+                            <p className="text-xs text-muted-foreground">
+                              Size: {item.snapshot.canvasSizeLabel}
+                            </p>
+                          ) : null}
                           <p className="text-xs text-muted-foreground">Qty: {item.qty}</p>
                         </div>
                         <p className="text-sm font-semibold">

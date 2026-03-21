@@ -3,6 +3,23 @@ import { SidebarNav } from './SidebarNav'
 import { Topbar } from './Topbar'
 import { OrdersManager } from './OrdersManager'
 
+const newCanvasSizeRow = () => ({
+  id:
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `size-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  label: '',
+  price: '',
+})
+
+/** Listing: first canvas size price (matches storefront). */
+const firstCanvasPriceLabel = (product) => {
+  const sizes = Array.isArray(product?.canvas_sizes) ? product.canvas_sizes : []
+  const cents = Number(sizes[0]?.price_cents)
+  if (!Number.isFinite(cents)) return '—'
+  return `${(cents / 100).toFixed(2)} ${product.currency ?? ''}`.trim()
+}
+
 const sectionTitle = {
   dashboard: 'Dashboard',
   categories: 'Categories',
@@ -137,8 +154,8 @@ const ProductsCreateManager = ({
 }) => {
   const [productName, setProductName] = useState('')
   const [productDescription, setProductDescription] = useState('')
-  const [price, setPrice] = useState('')
   const [currency, setCurrency] = useState('USD')
+  const [canvasSizeRows, setCanvasSizeRows] = useState(() => [newCanvasSizeRow()])
   const [selectedCategoryIds, setSelectedCategoryIds] = useState([])
   const [files, setFiles] = useState([])
   const [localError, setLocalError] = useState('')
@@ -152,9 +169,23 @@ const ProductsCreateManager = ({
     event.preventDefault()
     setLocalError('')
 
-    const parsedPrice = Number(price)
-    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
-      setLocalError('Price must be a valid positive number.')
+    const canvasSizes = []
+    for (const row of canvasSizeRows) {
+      const label = row.label.trim()
+      if (!label) continue
+      const rowPrice = Number(row.price)
+      if (!Number.isFinite(rowPrice) || rowPrice < 0) {
+        setLocalError('Each canvas size with a label needs a valid price.')
+        return
+      }
+      canvasSizes.push({
+        id: row.id,
+        label,
+        priceCents: Math.round(rowPrice * 100),
+      })
+    }
+    if (canvasSizes.length === 0) {
+      setLocalError('Add at least one canvas size with label and price.')
       return
     }
 
@@ -162,15 +193,15 @@ const ProductsCreateManager = ({
       await onCreateProduct({
         name: productName,
         description: productDescription,
-        priceCents: Math.round(parsedPrice * 100),
         currency,
         categoryIds: selectedCategoryIds,
         files,
+        canvasSizes,
       })
       setProductName('')
       setProductDescription('')
-      setPrice('')
       setCurrency('USD')
+      setCanvasSizeRows([newCanvasSizeRow()])
       setSelectedCategoryIds([])
       setFiles([])
     } catch (error) {
@@ -195,23 +226,71 @@ const ProductsCreateManager = ({
             placeholder="Product description"
             rows={4}
           />
-          <div className="inline-fields">
-            <input
-              type="number"
-              value={price}
-              onChange={(event) => setPrice(event.target.value)}
-              placeholder="Price (e.g. 49.99)"
-              min="0"
-              step="0.01"
-              required
-            />
-            <input
-              value={currency}
-              onChange={(event) => setCurrency(event.target.value.toUpperCase())}
-              placeholder="Currency"
-              maxLength={3}
-              required
-            />
+          <label htmlFor="product-currency">Currency</label>
+          <input
+            id="product-currency"
+            value={currency}
+            onChange={(event) => setCurrency(event.target.value.toUpperCase())}
+            placeholder="Currency (e.g. USD)"
+            maxLength={3}
+            required
+          />
+
+          <div className="canvas-sizes-block">
+            <h4 className="subheading" style={{ marginTop: '1rem' }}>
+              Canvas sizes (required)
+            </h4>
+            <p className="muted">
+              Add at least one size and price. The first row is the default listing price on the
+              store. Customers pick a size at checkout.
+            </p>
+            {canvasSizeRows.map((row, index) => (
+              <div key={row.id} className="inline-fields canvas-size-row">
+                <input
+                  value={row.label}
+                  onChange={(event) => {
+                    const v = event.target.value
+                    setCanvasSizeRows((rows) =>
+                      rows.map((r, i) => (i === index ? { ...r, label: v } : r)),
+                    )
+                  }}
+                  placeholder='Size label (e.g. 12×16")'
+                  disabled={loading}
+                />
+                <input
+                  type="number"
+                  value={row.price}
+                  onChange={(event) => {
+                    const v = event.target.value
+                    setCanvasSizeRows((rows) =>
+                      rows.map((r, i) => (i === index ? { ...r, price: v } : r)),
+                    )
+                  }}
+                  placeholder="Price for this size"
+                  min="0"
+                  step="0.01"
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  disabled={loading || canvasSizeRows.length <= 1}
+                  onClick={() =>
+                    setCanvasSizeRows((rows) => rows.filter((_, i) => i !== index))
+                  }
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              className="secondary-btn"
+              disabled={loading}
+              onClick={() => setCanvasSizeRows((rows) => [...rows, newCanvasSizeRow()])}
+            >
+              Add canvas size
+            </button>
           </div>
 
           <label htmlFor="product-categories">Categories</label>
@@ -280,9 +359,9 @@ const AllProductsPage = ({
   const [editProduct, setEditProduct] = useState(null)
   const [editName, setEditName] = useState('')
   const [editDescription, setEditDescription] = useState('')
-  const [editPrice, setEditPrice] = useState('')
   const [editCurrency, setEditCurrency] = useState('USD')
   const [editCategoryIds, setEditCategoryIds] = useState([])
+  const [editCanvasSizeRows, setEditCanvasSizeRows] = useState([])
   const [editImageIdsToRemove, setEditImageIdsToRemove] = useState([])
   const [editFilesToAdd, setEditFilesToAdd] = useState([])
   const [localError, setLocalError] = useState('')
@@ -294,9 +373,21 @@ const AllProductsPage = ({
     setEditProduct(product)
     setEditName(product.name ?? '')
     setEditDescription(product.description ?? '')
-    setEditPrice(product.price_cents != null ? (product.price_cents / 100).toFixed(2) : '0')
     setEditCurrency((product.currency ?? 'USD').toUpperCase())
     setEditCategoryIds(selectedCategoryIds)
+    const sizes = Array.isArray(product.canvas_sizes) ? product.canvas_sizes : []
+    setEditCanvasSizeRows(
+      sizes.length
+        ? sizes.map((s) => ({
+            id: typeof s.id === 'string' && s.id ? s.id : newCanvasSizeRow().id,
+            label: typeof s.label === 'string' ? s.label : '',
+            price:
+              s.price_cents != null && Number.isFinite(Number(s.price_cents))
+                ? (Number(s.price_cents) / 100).toFixed(2)
+                : '',
+          }))
+        : [newCanvasSizeRow()],
+    )
     setEditImageIdsToRemove([])
     setEditFilesToAdd([])
     setLocalError('')
@@ -306,6 +397,7 @@ const AllProductsPage = ({
   const closeEditModal = () => {
     setEditOpen(false)
     setEditProduct(null)
+    setEditCanvasSizeRows([])
     setLocalError('')
   }
 
@@ -327,9 +419,23 @@ const AllProductsPage = ({
     if (!editProduct) return
     setLocalError('')
 
-    const parsedPrice = Number(editPrice)
-    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
-      setLocalError('Price must be a valid positive number.')
+    const canvasSizes = []
+    for (const row of editCanvasSizeRows) {
+      const label = row.label.trim()
+      if (!label) continue
+      const rowPrice = Number(row.price)
+      if (!Number.isFinite(rowPrice) || rowPrice < 0) {
+        setLocalError('Each canvas size with a label needs a valid price.')
+        return
+      }
+      canvasSizes.push({
+        id: row.id,
+        label,
+        priceCents: Math.round(rowPrice * 100),
+      })
+    }
+    if (canvasSizes.length === 0) {
+      setLocalError('Add at least one canvas size with label and price.')
       return
     }
 
@@ -338,11 +444,11 @@ const AllProductsPage = ({
         id: editProduct.id,
         name: editName,
         description: editDescription,
-        priceCents: Math.round(parsedPrice * 100),
         currency: editCurrency,
         categoryIds: editCategoryIds,
         files: editFilesToAdd,
         imageIdsToRemove: editImageIdsToRemove,
+        canvasSizes,
       })
       closeEditModal()
     } catch (error) {
@@ -381,9 +487,7 @@ const AllProductsPage = ({
               <div className="product-main">
                 <strong>{product.name}</strong>
                 <p>{product.description || 'No description'}</p>
-                <p>
-                  {(product.price_cents / 100).toFixed(2)} {product.currency}
-                </p>
+                <p>From {firstCanvasPriceLabel(product)}</p>
                 <p className="muted">
                   Categories:{' '}
                   {(product.product_categories ?? [])
@@ -437,9 +541,7 @@ const AllProductsPage = ({
             <article key={product.id} className="product-row inactive-row">
               <div>
                 <strong>{product.name}</strong>
-                <p>
-                  {(product.price_cents / 100).toFixed(2)} {product.currency}
-                </p>
+                <p>From {firstCanvasPriceLabel(product)}</p>
               </div>
               <div className="product-actions">
                 <button
@@ -506,33 +608,73 @@ const AllProductsPage = ({
                     disabled={loading}
                   />
 
-                  <div className="inline-fields">
-                    <div>
-                      <label htmlFor="edit-product-price">Price</label>
-                      <input
-                        id="edit-product-price"
-                        type="number"
-                        value={editPrice}
-                        onChange={(event) => setEditPrice(event.target.value)}
-                        placeholder="Price (e.g. 49.99)"
-                        min="0"
-                        step="0.01"
-                        required
-                        disabled={loading}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="edit-product-currency">Currency</label>
-                      <input
-                        id="edit-product-currency"
-                        value={editCurrency}
-                        onChange={(event) => setEditCurrency(event.target.value.toUpperCase())}
-                        placeholder="Currency"
-                        maxLength={3}
-                        required
-                        disabled={loading}
-                      />
-                    </div>
+                  <label htmlFor="edit-product-currency">Currency</label>
+                  <input
+                    id="edit-product-currency"
+                    value={editCurrency}
+                    onChange={(event) => setEditCurrency(event.target.value.toUpperCase())}
+                    placeholder="Currency (e.g. USD)"
+                    maxLength={3}
+                    required
+                    disabled={loading}
+                  />
+
+                  <div className="canvas-sizes-block">
+                    <h4 className="subheading" style={{ marginTop: '1rem' }}>
+                      Canvas sizes (required)
+                    </h4>
+                    <p className="muted">
+                      At least one size and price. First row is the store listing price.
+                    </p>
+                    {editCanvasSizeRows.map((row, index) => (
+                      <div key={row.id} className="inline-fields canvas-size-row">
+                        <input
+                          value={row.label}
+                          onChange={(event) => {
+                            const v = event.target.value
+                            setEditCanvasSizeRows((rows) =>
+                              rows.map((r, i) => (i === index ? { ...r, label: v } : r)),
+                            )
+                          }}
+                          placeholder='Size label (e.g. 12×16")'
+                          disabled={loading}
+                        />
+                        <input
+                          type="number"
+                          value={row.price}
+                          onChange={(event) => {
+                            const v = event.target.value
+                            setEditCanvasSizeRows((rows) =>
+                              rows.map((r, i) => (i === index ? { ...r, price: v } : r)),
+                            )
+                          }}
+                          placeholder="Price for this size"
+                          min="0"
+                          step="0.01"
+                          disabled={loading}
+                        />
+                        <button
+                          type="button"
+                          className="secondary-btn"
+                          disabled={loading || editCanvasSizeRows.length <= 1}
+                          onClick={() =>
+                            setEditCanvasSizeRows((rows) => rows.filter((_, i) => i !== index))
+                          }
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      className="secondary-btn"
+                      disabled={loading}
+                      onClick={() =>
+                        setEditCanvasSizeRows((rows) => [...rows, newCanvasSizeRow()])
+                      }
+                    >
+                      Add canvas size
+                    </button>
                   </div>
 
                   <label htmlFor="edit-product-categories">Categories</label>

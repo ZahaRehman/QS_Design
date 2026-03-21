@@ -67,7 +67,7 @@ const selectOrders =
   'shipping_address1,shipping_address2,shipping_city,shipping_state,shipping_postal_code,' +
   'shipping_country,notes,total_cents,subtotal_cents,tax_cents,shipping_cents,currency,' +
   'created_at,' +
-  'order_items(id,product_id,qty,unit_price_cents,line_total_cents,name_snapshot,image_url_snapshot,created_at)'
+  'order_items(id,product_id,qty,unit_price_cents,line_total_cents,name_snapshot,image_url_snapshot,canvas_size_id,canvas_size_label,created_at)'
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {

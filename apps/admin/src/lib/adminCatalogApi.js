@@ -75,15 +75,15 @@ export const createProduct = ({
   accessToken,
   name,
   description,
-  priceCents,
   currency,
   categoryIds,
   images,
+  canvasSizes,
 }) =>
   callCatalog({
     action: 'create-product',
     accessToken,
-    payload: { name, description, priceCents, currency, categoryIds, images },
+    payload: { name, description, currency, categoryIds, images, canvasSizes },
   })
 
 export const updateProduct = ({
@@ -91,11 +91,11 @@ export const updateProduct = ({
   productId,
   name,
   description,
-  priceCents,
   currency,
   categoryIds,
   imagesToAdd,
   imageIdsToRemove,
+  canvasSizes,
 }) =>
   callCatalog({
     action: 'update-product',
@@ -104,11 +104,11 @@ export const updateProduct = ({
       productId,
       name,
       description,
-      priceCents,
       currency,
       categoryIds,
       imagesToAdd,
       imageIdsToRemove,
+      canvasSizes,
     },
   })
 

@@ -87,6 +87,51 @@ const requireAdmin = async (request: Request) => {
   return { userId: userData.user.id, status: 200 as const }
 }
 
+const MAX_CANVAS_SIZES = 20
+
+/** Normalizes payload.canvasSizes to DB jsonb: [{ id, label, price_cents }] */
+const parseCanvasSizes = (
+  payload: JsonRecord,
+): { ok: true; value: JsonRecord[] } | { ok: false; error: string } => {
+  const raw = payload.canvasSizes
+  if (raw == null) return { ok: false, error: 'canvasSizes is required' }
+  if (!Array.isArray(raw)) return { ok: false, error: 'canvasSizes must be an array' }
+  if (raw.length > MAX_CANVAS_SIZES) {
+    return { ok: false, error: `At most ${MAX_CANVAS_SIZES} canvas sizes allowed` }
+  }
+  const seenIds = new Set<string>()
+  const seenLabels = new Set<string>()
+  const out: JsonRecord[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') {
+      return { ok: false, error: 'Invalid canvas size entry' }
+    }
+    const rec = item as JsonRecord
+    const id = typeof rec.id === 'string' ? rec.id.trim() : ''
+    const label = typeof rec.label === 'string' ? rec.label.trim() : ''
+    const priceRaw = rec.price_cents ?? rec.priceCents
+    const priceCents = Number(priceRaw)
+    if (!id) return { ok: false, error: 'Each canvas size must have a non-empty id' }
+    if (!label) return { ok: false, error: 'Each canvas size must have a non-empty label' }
+    if (!Number.isInteger(priceCents) || priceCents < 0) {
+      return { ok: false, error: 'Each canvas size must have a valid price (integer cents >= 0)' }
+    }
+    if (seenIds.has(id)) return { ok: false, error: 'Duplicate canvas size id' }
+    const labelKey = label.toLowerCase()
+    if (seenLabels.has(labelKey)) return { ok: false, error: 'Duplicate canvas size label' }
+    seenIds.add(id)
+    seenLabels.add(labelKey)
+    out.push({ id, label, price_cents: priceCents })
+  }
+  if (out.length === 0) {
+    return { ok: false, error: 'At least one canvas size with label and price is required' }
+  }
+  return { ok: true, value: out }
+}
+
+const productSelectWithRelations =
+  'id,name,slug,description,currency,is_active,created_at,canvas_sizes,product_categories(category_id,categories(id,name,slug)),product_images(id,image_url,cloudinary_public_id,alt_text,sort_order)'
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -162,9 +207,7 @@ Deno.serve(async (request) => {
     if (action === 'list-products') {
       const { data, error } = await serviceClient
         .from('products')
-        .select(
-          'id,name,slug,description,price_cents,currency,is_active,created_at,product_categories(category_id,categories(id,name,slug)),product_images(id,image_url,cloudinary_public_id,alt_text,sort_order)',
-        )
+        .select(productSelectWithRelations)
         .order('created_at', { ascending: false })
 
       if (error) return json(400, { error: error.message })
@@ -179,17 +222,16 @@ Deno.serve(async (request) => {
         typeof payload.currency === 'string' && payload.currency.trim()
           ? payload.currency.trim().toUpperCase()
           : 'USD'
-      const priceCents = Number(payload.priceCents)
       const categoryIds = Array.isArray(payload.categoryIds) ? payload.categoryIds : []
       const images = Array.isArray(payload.images) ? payload.images : []
 
       if (!name) return json(400, { error: 'Product name is required' })
-      if (!Number.isInteger(priceCents) || priceCents < 0) {
-        return json(400, { error: 'priceCents must be a positive integer' })
-      }
       if (images.length > 10) {
         return json(400, { error: 'A product can have at most 10 images' })
       }
+
+      const canvasParsed = parseCanvasSizes(payload)
+      if (!canvasParsed.ok) return json(400, { error: canvasParsed.error })
 
       const slug =
         typeof payload.slug === 'string' && payload.slug.trim()
@@ -202,11 +244,11 @@ Deno.serve(async (request) => {
           name,
           slug,
           description,
-          price_cents: priceCents,
           currency,
+          canvas_sizes: canvasParsed.value,
           created_by: auth.userId,
         })
-        .select('id,name,slug,description,price_cents,currency,is_active,created_at')
+        .select(productSelectWithRelations)
         .single()
 
       if (productError) return json(400, { error: productError.message })
@@ -271,7 +313,6 @@ Deno.serve(async (request) => {
         typeof payload.currency === 'string' && payload.currency.trim()
           ? payload.currency.trim().toUpperCase()
           : 'USD'
-      const priceCents = Number(payload.priceCents)
       const categoryIds = Array.isArray(payload.categoryIds) ? payload.categoryIds : []
       const imagesToAdd = Array.isArray(payload.imagesToAdd) ? payload.imagesToAdd : []
       const imageIdsToRemove = Array.isArray(payload.imageIdsToRemove)
@@ -279,9 +320,9 @@ Deno.serve(async (request) => {
         : []
 
       if (!name) return json(400, { error: 'Product name is required' })
-      if (!Number.isInteger(priceCents) || priceCents < 0) {
-        return json(400, { error: 'priceCents must be a positive integer' })
-      }
+
+      const canvasParsed = parseCanvasSizes(payload)
+      if (!canvasParsed.ok) return json(400, { error: canvasParsed.error })
 
       // Ensure we only process valid string inputs.
       const sanitizedCategoryIds = categoryIds.filter(
@@ -312,15 +353,15 @@ Deno.serve(async (request) => {
 
       const slug = slugify(name)
 
-      // 1) Update base product data (name, slug, description, price, currency).
+      // 1) Update base product data (name, slug, description, currency, canvas sizes).
       const { error: productError } = await serviceClient
         .from('products')
         .update({
           name,
           slug,
           description,
-          price_cents: priceCents,
           currency,
+          canvas_sizes: canvasParsed.value,
         })
         .eq('id', productId)
 
@@ -388,9 +429,7 @@ Deno.serve(async (request) => {
 
       const { data: updatedProduct, error: fetchError } = await serviceClient
         .from('products')
-        .select(
-          'id,name,slug,description,price_cents,currency,is_active,created_at,product_categories(category_id,categories(id,name,slug)),product_images(id,image_url,cloudinary_public_id,alt_text,sort_order)',
-        )
+        .select(productSelectWithRelations)
         .eq('id', productId)
         .single()
 
