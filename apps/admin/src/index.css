@@ -1,16 +1,110 @@
-:root {
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 200 25% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 200 25% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 200 25% 14%;
+
+    --primary: 192 45% 28%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 18% 93%;
+    --secondary-foreground: 200 25% 14%;
+
+    --muted: 210 14% 95%;
+    --muted-foreground: 210 10% 46%;
+
+    --accent: 38 92% 50%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 60% 36%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 200 25% 14%;
+
+    --border: 214 20% 88%;
+    --input: 214 20% 88%;
+    --ring: 192 45% 28%;
+
+    --radius: 0.5rem;
+
+    --sidebar-bg: 200 30% 12%;
+    --sidebar-fg: 210 14% 83%;
+    --sidebar-fg-active: 0 0% 100%;
+    --sidebar-border: 200 20% 18%;
+    --sidebar-hover: 200 25% 16%;
+    --sidebar-active: 192 45% 28%;
+
+    --sidebar-background: 200 30% 12%;
+    --sidebar-foreground: 210 14% 83%;
+    --sidebar-primary: 192 45% 28%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 200 25% 16%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 200 20% 18%;
+    --sidebar-ring: 192 45% 28%;
+
+    --topbar-bg: 0 0% 100%;
+    --topbar-border: 214 20% 88%;
+  }
 }
 
-body {
-  margin: 0;
-  background: #f8fafc;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
 }
 
-#root {
-  min-height: 100vh;
+@layer components {
+  .admin-sidebar {
+    background: hsl(var(--sidebar-bg));
+    color: hsl(var(--sidebar-fg));
+  }
+  .admin-sidebar-link {
+    @apply flex items-center gap-3 px-4 py-2.5 rounded-md text-sm font-medium transition-colors duration-150;
+    color: hsl(var(--sidebar-fg));
+  }
+  .admin-sidebar-link:hover {
+    background: hsl(var(--sidebar-hover));
+  }
+  .admin-sidebar-link.active {
+    background: hsl(var(--sidebar-active));
+    color: hsl(var(--sidebar-fg-active));
+  }
+  .admin-topbar {
+    background: hsl(var(--topbar-bg));
+    border-bottom: 1px solid hsl(var(--topbar-border));
+  }
+  .saving-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center;
+    background: hsla(200, 25%, 14%, 0.5);
+    backdrop-filter: blur(4px);
+  }
+  .error-banner {
+    @apply px-4 py-3 text-sm font-medium;
+    background: hsl(var(--destructive));
+    color: hsl(var(--destructive-foreground));
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
 }
